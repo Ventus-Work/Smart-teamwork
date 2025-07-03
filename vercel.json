@@ -7,11 +7,8 @@
       "use": "@vercel/static"
     }
   ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+  "rewrites": [
+    { "source": "/:path((?!_next/|api/|.*\\..*).*)", "destination": "/index.html" }
   ],
   "env": {
     "VITE_SUPABASE_URL": "@vite_supabase_url",
