@@ -1,0 +1,725 @@
+/* 로그인 화면 애니메이션 */
+#loginScreen {
+    animation: loginScreenFadeIn 0.8s ease-out;
+}
+
+@keyframes loginScreenFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* 히어로 섹션 애니메이션 */
+#loginScreen .max-w-lg > * {
+    animation: slideInLeft 0.6s ease-out forwards;
+    opacity: 0;
+}
+
+#loginScreen .max-w-lg > *:nth-child(1) { animation-delay: 0.1s; }
+#loginScreen .max-w-lg > *:nth-child(2) { animation-delay: 0.2s; }
+#loginScreen .max-w-lg > *:nth-child(3) { animation-delay: 0.3s; }
+#loginScreen .max-w-lg > *:nth-child(4) { animation-delay: 0.4s; }
+#loginScreen .max-w-lg > *:nth-child(5) { animation-delay: 0.5s; }
+#loginScreen .max-w-lg > *:nth-child(6) { animation-delay: 0.6s; }
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 로그인 카드 애니메이션 */
+#loginScreen .bg-white.bg-opacity-95 {
+    animation: slideInRight 0.6s ease-out 0.3s forwards;
+    opacity: 0;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 버튼 호버 효과 개선 */
+#loginBtn {
+    position: relative;
+    overflow: hidden;
+}
+
+#loginBtn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transition: left 0.5s;
+}
+
+#loginBtn:hover::before {
+    left: 100%;
+}
+
+#demoBtn {
+    position: relative;
+    overflow: hidden;
+}
+
+#demoBtn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+#demoBtn:hover::before {
+    left: 100%;
+}
+
+/* 글리터 효과 */
+.text-transparent.bg-clip-text {
+    position: relative;
+    background-size: 200% auto;
+    animation: textGradient 3s ease-in-out infinite;
+}
+
+@keyframes textGradient {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+/* 체크마크 애니메이션 */
+.bg-green-500 {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* 통계 카운터 애니메이션 */
+.grid.grid-cols-3 .text-2xl {
+    animation: countUp 1s ease-out 1s forwards;
+    opacity: 0;
+}
+
+.grid.grid-cols-3 > div:nth-child(1) .text-2xl { animation-delay: 1s; }
+.grid.grid-cols-3 > div:nth-child(2) .text-2xl { animation-delay: 1.2s; }
+.grid.grid-cols-3 > div:nth-child(3) .text-2xl { animation-delay: 1.4s; }
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 별점 애니메이션 */
+.flex.space-x-1 svg {
+    animation: starTwinkle 1.5s ease-in-out infinite;
+}
+
+.flex.space-x-1 svg:nth-child(1) { animation-delay: 0s; }
+.flex.space-x-1 svg:nth-child(2) { animation-delay: 0.1s; }
+.flex.space-x-1 svg:nth-child(3) { animation-delay: 0.2s; }
+.flex.space-x-1 svg:nth-child(4) { animation-delay: 0.3s; }
+.flex.space-x-1 svg:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes starTwinkle {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+}
+
+/* 배경 패턴 애니메이션 */
+#loginScreen > div:nth-child(3) {
+    animation: backgroundMove 20s ease-in-out infinite;
+}
+
+@keyframes backgroundMove {
+    0%, 100% {
+        opacity: 0.1;
+    }
+    50% {
+        opacity: 0.2;
+    }
+}
+
+/* 반응형 개선 */
+@media (max-width: 1024px) {
+    #loginScreen .lg\\:w-1\\/2 {
+        width: 100%;
+    }
+    
+    #loginScreen .hidden.lg\\:flex {
+        display: none !important;
+    }
+}
+
+/* 스크롤바 스타일링 */
+#loginScreen::-webkit-scrollbar {
+    width: 6px;
+}
+
+#loginScreen::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+}
+
+#loginScreen::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.3);
+    border-radius: 3px;
+}
+
+#loginScreen::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.5);
+}
+
+/* 포커스 개선 */
+#loginBtn:focus,
+#demoBtn:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: rgba(59, 130, 246, 0.5);
+    ring-offset: 2px;
+}
+
+/* 배경 애니메이션 */
+.animation-delay-2000 {
+    animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+    animation-delay: 4s;
+}
+
+/* 프로젝트 카드 개선 */
+.project-card {
+    backdrop-filter: blur(10px);
+}
+
+.project-card:hover {
+    transform: translateY(-4px);
+}
+
+/* 메인 컨텐츠 배경 */
+body {
+    background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 25%, #e8eaf6 50%, #f3e5f5 75%, #fce4ec 100%);
+    background-attachment: fixed;
+}
+
+/* 날짜 이벤트 팝업 스타일 */
+#dateEventPopup {
+    animation: popupSlideIn 0.3s ease-out;
+}
+
+#dateEventPopup > div {
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes popupSlideIn {
+    from { 
+        opacity: 0; 
+    }
+    to { 
+        opacity: 1; 
+    }
+}
+
+@keyframes modalSlideIn {
+    from { 
+        opacity: 0; 
+        transform: translateY(-20px) scale(0.9); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0) scale(1); 
+    }
+}
+
+.date-event-popup {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border-radius: 12px;
+}
+
+/* 할 일 목록 스크롤바 스타일링 */
+#dateEventsList::-webkit-scrollbar {
+    width: 6px;
+}
+
+#dateEventsList::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.05);
+    border-radius: 10px;
+}
+
+#dateEventsList::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+}
+
+#dateEventsList::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.5);
+}
+
+/* Firefox 스크롤바 */
+#dateEventsList {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.3) rgba(0,0,0,0.05);
+}
+
+/* 캘린더 일정 표시 스타일 개선 */
+.calendar-day {
+    min-height: 100px;
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid rgba(229, 231, 235, 0.7);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+.calendar-day:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+    border-color: rgba(165, 180, 252, 0.5);
+}
+
+.calendar-day.today {
+    border: 2px solid rgba(79, 70, 229, 0.5);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+}
+
+.calendar-day.outside {
+    background-color: rgba(243, 244, 246, 0.5);
+    color: #9ca3af;
+    opacity: 0.7;
+}
+
+.calendar-day.other-month {
+    background-color: rgba(249, 250, 251, 0.8);
+    color: #d1d5db;
+}
+
+.calendar-day.current-month {
+    background-color: white;
+    color: #374151;
+}
+
+.calendar-day.other-month .date-number {
+    color: #d1d5db !important;
+    font-weight: normal;
+}
+
+.calendar-day.current-month .date-number {
+    color: #374151;
+    font-weight: 600;
+}
+
+.calendar-day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+.calendar-day-date {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.calendar-day.today .calendar-day-date {
+    color: #4f46e5;
+}
+
+.calendar-day.has-events:after {
+    content: '';
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    background-color: #4f46e5;
+    border-radius: 50%;
+}
+
+/* 이벤트 도트 표시 개선 */
+.calendar-dots-container {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+.calendar-event-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+}
+
+.calendar-day:hover .calendar-event-dot {
+    transform: scale(1.2);
+}
+
+/* 애니메이션 효과 */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 요일 헤더에 애니메이션 적용 */
+#calendarView .grid-cols-7 > div {
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* 각 셀에 순차적 애니메이션 적용 */
+.calendar-day {
+    animation: slideInUp 0.3s ease-out forwards;
+}
+
+#calendarGrid > div:nth-child(1) { animation-delay: 0.02s; }
+#calendarGrid > div:nth-child(2) { animation-delay: 0.04s; }
+#calendarGrid > div:nth-child(3) { animation-delay: 0.06s; }
+#calendarGrid > div:nth-child(4) { animation-delay: 0.08s; }
+#calendarGrid > div:nth-child(5) { animation-delay: 0.10s; }
+#calendarGrid > div:nth-child(6) { animation-delay: 0.12s; }
+#calendarGrid > div:nth-child(7) { animation-delay: 0.14s; }
+
+#calendarGrid > div:nth-child(8) { animation-delay: 0.16s; }
+#calendarGrid > div:nth-child(9) { animation-delay: 0.18s; }
+#calendarGrid > div:nth-child(10) { animation-delay: 0.20s; }
+#calendarGrid > div:nth-child(11) { animation-delay: 0.22s; }
+#calendarGrid > div:nth-child(12) { animation-delay: 0.24s; }
+#calendarGrid > div:nth-child(13) { animation-delay: 0.26s; }
+#calendarGrid > div:nth-child(14) { animation-delay: 0.28s; }
+
+/* 오늘 날짜 강조 애니메이션 */
+.calendar-day.today {
+    animation: pulse 2s infinite;
+}
+
+/* 버튼 호버 효과 */
+button {
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    transform: translateY(-1px);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+/* 모달 애니메이션 효과 */
+#dateEventPopup, #eventDetailModal, #newTaskModal, #newProjectModal, #taskDetailModal {
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 테이블 헤더 스티키 */
+.calendar-day-header {
+    position: sticky;
+    top: 0;
+    background-color: white;
+    z-index: 1;
+}
+
+/* 대시보드 카드 애니메이션 */
+#dashboardView .grid-cols-1 > div {
+    animation: slideInUp 0.3s ease-out forwards;
+}
+
+#dashboardView .grid-cols-1 > div:nth-child(1) { animation-delay: 0.1s; }
+#dashboardView .grid-cols-1 > div:nth-child(2) { animation-delay: 0.2s; }
+#dashboardView .grid-cols-1 > div:nth-child(3) { animation-delay: 0.3s; }
+#dashboardView .grid-cols-1 > div:nth-child(4) { animation-delay: 0.4s; }
+
+/* 필터 버튼 애니메이션 */
+.filter-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.filter-btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.3s ease;
+}
+
+.filter-btn:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+}
+
+/* 프로젝트 필터 드롭다운 애니메이션 */
+#projectFilterDropdown {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#projectFilterDropdown:not(.hidden) {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.project-filter-btn {
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.project-filter-btn::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 0;
+    background-color: rgba(59, 130, 246, 0.1);
+    transition: width 0.2s ease;
+}
+
+.project-filter-btn:hover::before {
+    width: 100%;
+}
+
+/* 빈 상태 스타일 개선 */
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #9CA3AF;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.empty-state svg {
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+}
+
+.empty-state:hover svg {
+    opacity: 0.8;
+}
+
+.empty-state h3 {
+    margin-bottom: 0.5rem;
+    color: #374151;
+}
+
+.empty-state p {
+    margin-bottom: 1rem;
+    color: #6B7280;
+    line-height: 1.5;
+}
+
+/* 우선순위 색상 구분 */
+.priority-high {
+    background-color: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+.priority-medium {
+    background-color: #fef3c7;
+    color: #d97706;
+    border: 1px solid #fed7aa;
+}
+
+.priority-low {
+    background-color: #d1fae5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+/* 상태별 색상 구분 */
+.status-pending {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+}
+
+.status-in_progress {
+    background-color: #dbeafe;
+    color: #2563eb;
+    border: 1px solid #93c5fd;
+}
+
+.status-completed {
+    background-color: #d1fae5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+/* 프로젝트 색상 구분 */
+.project-blue {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.project-green {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.project-purple {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.project-red {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.project-yellow {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.project-indigo {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+}
+
+/* 주간 뷰 스타일링 */
+.week-day {
+    min-height: 200px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.week-day:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-color: #e5e7eb;
+}
+
+.week-day.today {
+    border-color: #3b82f6;
+    background: linear-gradient(to bottom, #eff6ff, #ffffff);
+}
+
+.week-day.selected {
+    border-color: #6366f1;
+    background: linear-gradient(to bottom, #eef2ff, #ffffff);
+}
+
+.week-day-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.week-date {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 4px;
+}
+
+.week-day.today .week-date {
+    color: #3b82f6;
+}
+
+.week-day-name {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #6b7280;
+    text-transform: uppercase;
+}
+
+.calendar-events-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* 접근성 고려 */
+@media (prefers-reduced-motion: reduce) {
+    .week-day {
+        transition: none;
+    }
+    
+    .week-day:hover {
+        transform: none;
+    }
+    
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

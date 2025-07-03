@@ -1,0 +1,37 @@
+{
+  "name": "smart-teamwork",
+  "version": "1.0.0",
+  "description": "10명 내외의 소규모 팀을 위한 협업 할 일 관리 웹 애플리케이션",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx serve . -l 3000",
+    "start": "npx serve . -l 3000",
+    "build": "echo 'Static build - no build step required'",
+    "preview": "npx serve . -l 4173"
+  },
+  "keywords": [
+    "teamwork",
+    "collaboration",
+    "todo",
+    "project-management",
+    "supabase",
+    "real-time"
+  ],
+  "author": "Smart Teamwork Team",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "serve": "^14.2.1"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/smart-teamwork.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/smart-teamwork/issues"
+  },
+  "homepage": "https://github.com/yourusername/smart-teamwork#readme"
+}

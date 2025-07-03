@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Teamwork - 협업 할 일 관리</title>
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 개발 환경에서만 로드 -->
+    <script>
+        // 프로덕션 환경이 아닌 경우에만 env.js 로드
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            const script = document.createElement('script');
+            script.src = './env.js';
+            script.onerror = () => console.warn('env.js not found - using fallback values');
+            document.head.appendChild(script);
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 로딩 화면 -->
+    <div id="loading" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p class="text-gray-600">로딩 중...</p>
+        </div>
+    </div>
+
+    <!-- 로그인 화면 -->
+    <div id="loginScreen" class="hidden fixed inset-0 bg-gradient-to-br from-indigo-900 via-blue-900 to-purple-900 overflow-y-auto">
+        <!-- 배경 패턴 -->
+        <div class="absolute inset-0 bg-black opacity-20"></div>
+        <div class="absolute inset-0" style="background-image: radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(255,255,255,0.1) 0%, transparent 50%);"></div>
+        
+        <div class="relative min-h-screen flex">
+            <!-- 왼쪽: 히어로 섹션 -->
+            <div class="hidden lg:flex lg:w-1/2 flex-col justify-center px-12 xl:px-20">
+                <div class="max-w-lg">
+                    <!-- 로고 및 브랜드 -->
+                    <div class="flex items-center mb-8">
+                        <div class="bg-white rounded-xl p-3 mr-4 shadow-lg">
+                            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-bold text-white">Smart Teamwork</h1>
+                            <p class="text-blue-200 text-sm">by YOUWARE</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 메인 헤드라인 -->
+                    <h2 class="text-4xl xl:text-5xl font-bold text-white mb-6 leading-tight">
+                        팀 협업을 
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">스마트</span>하게
+                    </h2>
+                    
+                    <!-- 가치 제안 -->
+                    <p class="text-xl text-blue-100 mb-8 leading-relaxed">
+                        10명 내외의 소규모 팀을 위한 올인원 협업 플랫폼. 
+                        실시간 소통부터 프로젝트 관리까지, 모든 것을 한 곳에서.
+                    </p>
+                    
+                    <!-- 주요 기능 -->
+                    <div class="space-y-4 mb-8">
+                        <div class="flex items-center text-white">
+                            <div class="bg-green-500 rounded-full p-1 mr-3">
+                                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <span>실시간 할 일 관리 및 협업</span>
+                        </div>
+                        <div class="flex items-center text-white">
+                            <div class="bg-green-500 rounded-full p-1 mr-3">
+                                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <span>스마트 캘린더 및 일정 관리</span>
+                        </div>
+                        <div class="flex items-center text-white">
+                            <div class="bg-green-500 rounded-full p-1 mr-3">
+                                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <span>프로젝트 진행률 및 통계 대시보드</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 신뢰성 지표 -->
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-2xl font-bold text-white">500+</div>
+                            <div class="text-blue-200 text-sm">활성 팀</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-white">98%</div>
+                            <div class="text-blue-200 text-sm">만족도</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-white">24/7</div>
+                            <div class="text-blue-200 text-sm">실시간 동기화</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 오른쪽: 로그인 폼 -->
+            <div class="w-full lg:w-1/2 flex items-center justify-center px-6 py-12">
+                <div class="max-w-md w-full">
+                    <!-- 모바일 헤더 -->
+                    <div class="lg:hidden text-center mb-8">
+                        <div class="flex items-center justify-center mb-4">
+                            <div class="bg-white rounded-xl p-3 mr-3 shadow-lg">
+                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                </svg>
+                            </div>
+                            <h1 class="text-2xl font-bold text-white">Smart Teamwork</h1>
+                        </div>
+                        <p class="text-blue-100">팀 협업을 스마트하게</p>
+                    </div>
+                    
+                    <!-- 로그인 카드 -->
+                    <div class="bg-white bg-opacity-95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-white border-opacity-20">
+                        <div class="text-center mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">시작하기</h2>
+                            <p class="text-gray-600">협업의 새로운 경험을 시작해보세요</p>
+                        </div>
+                        
+                        <!-- Google 로그인 -->
+                        <button id="loginBtn" class="w-full bg-white border-2 border-gray-200 rounded-xl px-6 py-4 flex items-center justify-center hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm mb-6 group">
+                            <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" class="w-5 h-5 mr-3">
+                            <span class="font-semibold text-gray-700 group-hover:text-gray-900">Google로 로그인</span>
+                        </button>
+                        
+                        <!-- 구분선 -->
+                        <div class="relative mb-6">
+                            <div class="absolute inset-0 flex items-center">
+                                <div class="w-full border-t border-gray-200"></div>
+                            </div>
+                            <div class="relative flex justify-center text-sm">
+                                <span class="px-4 bg-white text-gray-500 font-medium">또는</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 데모 버튼 -->
+                        <button id="demoBtn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            데모 체험하기
+                        </button>
+                        
+                        <p class="text-xs text-gray-500 text-center mt-4 leading-relaxed">
+                            데모 모드에서는 로그인 없이 모든 기능을<br>체험할 수 있습니다
+                        </p>
+                        
+                        <!-- 사용자 피드백 -->
+                        <div class="mt-8 pt-6 border-t border-gray-100">
+                            <div class="flex items-center justify-center mb-3">
+                                <div class="flex space-x-1">
+                                    <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                    </svg>
+                                    <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                    </svg>
+                                    <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                    </svg>
+                                    <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                    </svg>
+                                    <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-600 text-center">
+                                "우리 팀의 생산성이 2배 향상되었어요!"
+                            </p>
+                            <p class="text-xs text-gray-500 text-center mt-1">
+                                - 김민수, 스타트업 대표
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 하단 배경 이미지 (선택사항) -->
+        <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black to-transparent opacity-30"></div>
+    </div>
+
+    <!-- 메인 애플리케이션 -->
+    <div id="mainApp" class="hidden min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+        <!-- 배경 패턴 -->
+        <div class="fixed inset-0 pointer-events-none">
+            <div class="absolute top-0 left-0 w-full h-full opacity-30">
+                <div class="absolute top-20 left-20 w-32 h-32 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
+                <div class="absolute top-40 right-40 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-2000"></div>
+                <div class="absolute bottom-40 left-60 w-56 h-56 bg-indigo-200 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-4000"></div>
+            </div>
+        </div>
+
+        <!-- 네비게이션 바 -->
+        <nav class="bg-gradient-to-r from-indigo-900 via-blue-900 to-purple-900 shadow-lg relative z-10">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center space-x-4">
+                        <!-- 로고 및 브랜드 -->
+                        <div class="flex items-center">
+                            <div class="bg-white rounded-lg p-2 mr-3 shadow-md">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h1 class="text-lg font-bold text-white">Smart Teamwork</h1>
+                                <p class="text-xs text-blue-200">by YOUWARE</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 메뉴 항목 -->
+                        <div class="hidden md:flex space-x-2 ml-8">
+                            <button id="dashboardBtn" class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-700 bg-opacity-50 backdrop-blur-sm shadow-inner border border-white border-opacity-10 transition-all hover:bg-opacity-70">
+                                <span class="flex items-center">
+                                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                                    </svg>
+                                    대시보드
+                                </span>
+                            </button>
+                            <button id="calendarBtn" class="px-4 py-2 rounded-lg text-sm font-medium text-blue-100 hover:bg-blue-700 hover:bg-opacity-30 hover:text-white transition-all">
+                                <span class="flex items-center">
+                                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                    캘린더
+                                </span>
+                            </button>
+                            <button id="projectsBtn" class="px-4 py-2 rounded-lg text-sm font-medium text-blue-100 hover:bg-blue-700 hover:bg-opacity-30 hover:text-white transition-all">
+                                <span class="flex items-center">
+                                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                                    </svg>
+                                    프로젝트
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3">
+                        <!-- 새 할 일 버튼 -->
+                        <button id="newTaskBtn" class="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md transition-all transform hover:-translate-y-0.5 focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 focus:outline-none">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                새 할 일
+                            </span>
+                        </button>
+                        
+                        <!-- 데모 모드 표시 -->
+                        <div id="demoIndicator" class="hidden bg-gradient-to-r from-orange-400 to-pink-500 text-white px-3 py-1 rounded-full text-xs font-medium shadow-md">
+                            🎭 데모 모드
+                        </div>
+                        
+                        <!-- 사용자 메뉴 -->
+                        <div class="relative">
+                            <button id="userMenuBtn" class="flex items-center space-x-2 text-white hover:text-blue-200 transition-colors">
+                                <div id="userAvatarContainer" class="w-8 h-8 rounded-full overflow-hidden border-2 border-white border-opacity-50 shadow-md">
+                                    <img id="userAvatar" src="" alt="User" class="w-full h-full object-cover">
+                                </div>
+                                <span id="userName" class="hidden md:block text-sm font-medium"></span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white bg-opacity-95 backdrop-blur-sm rounded-lg shadow-lg py-1 z-10 border border-white border-opacity-20 transform origin-top-right transition-all">
+                                <div class="px-4 py-2 border-b border-gray-100">
+                                    <p class="text-xs text-gray-500">로그인됨</p>
+                                    <p class="text-sm font-medium text-gray-900 truncate" id="userFullName"></p>
+                                </div>
+                                <button id="logoutBtn" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <svg class="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                                    </svg>
+                                    로그아웃
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 메인 컨텐츠 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+            <!-- 대시보드 뷰 -->
+            <div id="dashboardView">
+                <!-- 통계 카드 -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+                    <!-- 전체 카드 -->
+                    <div class="bg-white bg-opacity-90 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-gray-100 transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-sm font-medium text-gray-500 uppercase">전체 할 일</h3>
+                            <div class="bg-gradient-to-br from-indigo-100 to-blue-100 p-2 rounded-lg shadow-sm">
+                                <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <p id="totalTasks" class="text-3xl font-bold text-gray-900 mb-2">0</p>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5">
+                            <div class="bg-gradient-to-r from-indigo-500 to-purple-500 h-1.5 rounded-full" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 진행 중 카드 -->
+                    <div class="bg-white bg-opacity-90 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-gray-100 cursor-pointer transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-sm font-medium text-gray-500 uppercase">진행 중</h3>
+                            <div class="bg-gradient-to-br from-blue-100 to-blue-200 p-2 rounded-lg shadow-sm">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <p id="inProgressTasks" class="text-3xl font-bold text-blue-500 mb-2">0</p>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5">
+                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 완료 카드 -->
+                    <div class="bg-white bg-opacity-90 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-gray-100 cursor-pointer transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-sm font-medium text-gray-500 uppercase">완료</h3>
+                            <div class="bg-gradient-to-br from-green-100 to-green-200 p-2 rounded-lg shadow-sm">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <p id="completedTasks" class="text-3xl font-bold text-green-500 mb-2">0</p>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5">
+                            <div class="bg-green-500 h-1.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 대기 중 카드 -->
+                    <div class="bg-white bg-opacity-90 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-gray-100 cursor-pointer transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-sm font-medium text-gray-500 uppercase">대기 중</h3>
+                            <div class="bg-gradient-to-br from-yellow-100 to-orange-100 p-2 rounded-lg shadow-sm">
+                                <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <p id="pendingTasks" class="text-3xl font-bold text-yellow-500 mb-2">0</p>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5">
+                            <div class="bg-yellow-500 h-1.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 필터 버튼 -->
+                <div class="mb-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">할 일 목록</h2>
+                        <div class="flex">
+                            <div class="flex p-1 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100">
+                                <button data-filter="all" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-sm transform transition-all duration-200">전체</button>
+                                <button data-filter="pending" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transform transition-all duration-200">대기 중</button>
+                                <button data-filter="in_progress" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transform transition-all duration-200">진행 중</button>
+                                <button data-filter="completed" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transform transition-all duration-200">완료</button>
+                            </div>
+                            <!-- 프로젝트 필터 드롭다운 -->
+                            <div class="ml-2 relative">
+                                <button id="projectFilterBtn" class="flex items-center space-x-1 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                                    </svg>
+                                    <span>프로젝트</span>
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                                <div id="projectFilterDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 z-10 py-2">
+                                    <div class="max-h-60 overflow-y-auto">
+                                        <button data-project-filter="all" class="project-filter-btn w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center">
+                                            <svg class="w-4 h-4 mr-2 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12z" clip-rule="evenodd"></path>
+                                            </svg>
+                                            모든 프로젝트
+                                        </button>
+                                        <!-- 프로젝트 필터 목록은 동적으로 생성됩니다 -->
+                                        <div id="projectFilterList"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 추가 필터 버튼 -->
+                            <div class="ml-2 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100 p-1">
+                                <button id="advancedFilterBtn" class="p-2 text-gray-500 hover:text-gray-700 rounded-lg transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 할 일 목록 -->
+                <div id="tasksList" class="space-y-4">
+                    <!-- 할 일 카드들이 여기에 동적으로 추가됩니다 -->
+                </div>
+            </div>
+
+            <!-- 캘린더 뷰 -->
+            <div id="calendarView" class="hidden">
+                <div class="bg-gradient-to-r from-indigo-100 to-purple-100 rounded-xl shadow-lg mb-6 border border-white border-opacity-50">
+                    <div class="px-8 py-6">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                            <div class="flex items-center space-x-4 mb-4 md:mb-0">
+                                <div class="bg-gradient-to-br from-indigo-500 to-purple-500 p-3 rounded-xl shadow-md text-white">
+                                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">스마트 캘린더</h2>
+                                    <p class="text-gray-600">일정과 마감일을 한눈에 관리하세요</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap md:flex-nowrap items-center gap-3">
+                                <div class="flex items-center space-x-2">
+                                    <div class="flex items-center space-x-1 bg-white rounded-lg p-1 shadow-sm">
+                                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                                        <span class="text-xs text-gray-600">완료</span>
+                                    </div>
+                                    <div class="flex items-center space-x-1 bg-white rounded-lg p-1 shadow-sm">
+                                        <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                        <span class="text-xs text-gray-600">진행 중</span>
+                                    </div>
+                                    <div class="flex items-center space-x-1 bg-white rounded-lg p-1 shadow-sm">
+                                        <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                        <span class="text-xs text-gray-600">대기 중</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white bg-opacity-95 backdrop-blur-sm rounded-xl shadow-lg border border-gray-100">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <div class="flex flex-wrap items-center justify-between gap-4">
+                            <div class="flex items-center space-x-3">
+                                <button id="prevPeriod" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                    </svg>
+                                </button>
+                                <h2 id="currentPeriod" class="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">2025년 7월</h2>
+                                <button id="nextPeriod" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                </button>
+                                <button id="todayBtn" class="ml-2 px-4 py-2 text-sm bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg font-medium transition-colors">오늘</button>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="bg-white p-1 rounded-xl shadow-sm border border-gray-100">
+                                    <div class="inline-flex rounded-lg" role="group">
+                                        <button id="monthViewBtn" class="px-4 py-2 text-sm font-medium bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 shadow-sm transition-all">월간</button>
+                                        <button id="weekViewBtn" class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">주간</button>
+                                    </div>
+                                </div>
+                                <button id="addCalendarEventBtn" class="px-4 py-2 text-sm font-medium bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:from-blue-600 hover:to-purple-600 shadow-md transition-all transform hover:-translate-y-0.5 flex items-center">
+                                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    일정 추가
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 월간 뷰 -->
+                    <div id="monthViewContainer" class="p-6">
+                        <!-- 요일 헤더 -->
+                        <div class="grid grid-cols-7 gap-2 mb-4">
+                            <div class="text-center py-3 text-sm font-bold text-red-500 bg-red-50 rounded-lg">일</div>
+                            <div class="text-center py-3 text-sm font-bold text-gray-700 bg-gray-50 rounded-lg">월</div>
+                            <div class="text-center py-3 text-sm font-bold text-gray-700 bg-gray-50 rounded-lg">화</div>
+                            <div class="text-center py-3 text-sm font-bold text-gray-700 bg-gray-50 rounded-lg">수</div>
+                            <div class="text-center py-3 text-sm font-bold text-gray-700 bg-gray-50 rounded-lg">목</div>
+                            <div class="text-center py-3 text-sm font-bold text-gray-700 bg-gray-50 rounded-lg">금</div>
+                            <div class="text-center py-3 text-sm font-bold text-blue-500 bg-blue-50 rounded-lg">토</div>
+                        </div>
+                        
+                        <!-- 캘린더 그리드 -->
+                        <div id="calendarGrid" class="grid grid-cols-7 gap-2">
+                            <!-- 캘린더 그리드가 여기에 동적으로 생성됩니다 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 주간 뷰 -->
+                    <div id="weekViewContainer" class="p-6 hidden">
+                        <!-- 요일 헤더 -->
+                        <div class="grid grid-cols-7 gap-2 mb-4">
+                            <div class="text-center py-3 text-sm font-bold text-red-500 bg-red-50 rounded-lg">일</div>
+                            <div class="text-center py-3 text-sm font-bold text-gray-700 bg-gray-50 rounded-lg">월</div>
+                            <div class="text-center py-3 text-sm font-bold text-gray-700 bg-gray-50 rounded-lg">화</div>
+                            <div class="text-center py-3 text-sm font-bold text-gray-700 bg-gray-50 rounded-lg">수</div>
+                            <div class="text-center py-3 text-sm font-bold text-gray-700 bg-gray-50 rounded-lg">목</div>
+                            <div class="text-center py-3 text-sm font-bold text-gray-700 bg-gray-50 rounded-lg">금</div>
+                            <div class="text-center py-3 text-sm font-bold text-blue-500 bg-blue-50 rounded-lg">토</div>
+                        </div>
+                        
+                        <!-- 주간 그리드 -->
+                        <div id="weekGrid" class="grid grid-cols-7 gap-2">
+                            <!-- 주간 그리드가 여기에 동적으로 생성됩니다 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 일정 팝업 (날짜 클릭 시 표시) -->
+            <div id="dateEventPopup" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl h-[600px] flex flex-col overflow-hidden border border-gray-100">
+                    <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 flex justify-between items-start text-white">
+                        <div class="flex items-start space-x-3">
+                            <div class="bg-white bg-opacity-20 rounded-lg p-2 mt-1">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold" id="popupDate">2025년 7월 1일 화 일</h3>
+                                <p class="text-blue-100 text-sm mt-1">선택한 날짜의 할 일을 확인하고 관리하세요</p>
+                            </div>
+                        </div>
+                        <button id="closePopupBtn" class="text-white hover:text-gray-200 transition-colors p-1">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex-1 px-6 py-4 overflow-hidden">
+                        <div id="dateEventsList" class="h-full overflow-y-auto space-y-3 pr-2">
+                            <!-- 동적으로 생성될 이벤트 목록 -->
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0 border-t border-gray-100 px-6 py-4">
+                        <button id="addDateEventBtn" class="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg text-sm font-medium flex justify-center items-center transition-all">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            이 날짜에 할 일 추가
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 일정 상세 모달 -->
+            <div id="eventDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div class="bg-white rounded-lg shadow-2xl max-w-md w-full">
+                    <div class="bg-blue-600 px-6 py-4 text-white relative">
+                        <h3 class="text-lg font-semibold" id="eventDetailTitle">프론트엔드 개발 환경 설정</h3>
+                        <button id="closeEventDetailBtn" class="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="p-6">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">프로젝트</label>
+                            <div id="eventDetailProject" class="flex items-center">
+                                <div class="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
+                                <span class="text-sm">웹사이트 리뉴얼</span>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">상태 및 우선순위</label>
+                            <div class="flex items-center space-x-2">
+                                <span id="eventDetailStatus" class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">진행 중</span>
+                                <span id="eventDetailPriority" class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">높음</span>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">일정</label>
+                            <div class="flex items-center space-x-4">
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 text-gray-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <span id="eventDetailStartDate" class="text-sm">2025. 7. 1.</span>
+                                </div>
+                                <span class="text-gray-500">~</span>
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 text-gray-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <span id="eventDetailDueDate" class="text-sm">2025. 7. 3.</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">설명</label>
+                            <p id="eventDetailDescription" class="text-sm text-gray-600">React, Webpack, 각종 개발 도구들을 설정합니다.</p>
+                        </div>
+                        <div class="flex justify-end space-x-2 mt-6">
+                            <button id="editEventBtn" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium">
+                                편집
+                            </button>
+                            <button id="openTaskDetailBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium">
+                                상세 보기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 프로젝트 뷰 -->
+            <div id="projectsView" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">프로젝트 관리</h2>
+                    <button id="newProjectBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                        + 새 프로젝트
+                    </button>
+                </div>
+                <div id="projectsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- 프로젝트 카드들이 여기에 동적으로 추가됩니다 -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 새 할 일 모달 -->
+    <div id="newTaskModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900">할 일 관리</h3>
+                </div>
+                <p class="text-sm text-gray-600 mt-2">프로젝트별로 할 일을 체계적으로 관리하세요</p>
+            </div>
+            <form id="newTaskForm" class="p-6 space-y-4">
+                <!-- 프로젝트 선택 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        프로젝트 <span class="text-red-500">*</span>
+                    </label>
+                    <select id="taskProject" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50" required>
+                        <option value="">프로젝트 선택</option>
+                    </select>
+                </div>
+
+                <!-- 할 일 제목 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        할 일 제목 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="taskTitle" placeholder="할 일 제목을 입력하세요" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50" required>
+                </div>
+
+                <!-- 상세 설명 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">상세 설명</label>
+                    <textarea id="taskDescription" rows="3" placeholder="상세 설명 (선택사항)" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 resize-none"></textarea>
+                </div>
+
+                <!-- 시작일과 마감일 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="date-picker-container">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">시작일</label>
+                        <div class="date-input-container">
+                            <input type="text" id="taskStartDateDisplay" readonly placeholder="YYYY-MM-DD" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50">
+                            <div class="calendar-icon" data-calendar="start"></div>
+                            <input type="hidden" id="taskStartDate">
+                        </div>
+                        <div id="startDateCalendar" class="custom-calendar">
+                            <div class="calendar-header">
+                                <div class="month-year">
+                                    <select id="startMonthSelect"></select>
+                                    <select id="startYearSelect"></select>
+                                </div>
+                                <div class="calendar-nav">
+                                    <button class="prev-month" data-calendar="start">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                        </svg>
+                                    </button>
+                                    <button class="next-month" data-calendar="start">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="weekdays">
+                                <span>일</span>
+                                <span>월</span>
+                                <span>화</span>
+                                <span>수</span>
+                                <span>목</span>
+                                <span>금</span>
+                                <span>토</span>
+                            </div>
+                            <div class="days" id="startDateDays"></div>
+                        </div>
+                    </div>
+                    <div class="date-picker-container">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">마감일</label>
+                        <div class="date-input-container">
+                            <input type="text" id="taskDueDateDisplay" readonly placeholder="YYYY-MM-DD" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50">
+                            <div class="calendar-icon" data-calendar="due"></div>
+                            <input type="hidden" id="taskDueDate">
+                        </div>
+                        <div id="dueDateCalendar" class="custom-calendar">
+                            <div class="calendar-header">
+                                <div class="month-year">
+                                    <select id="dueMonthSelect"></select>
+                                    <select id="dueYearSelect"></select>
+                                </div>
+                                <div class="calendar-nav">
+                                    <button class="prev-month" data-calendar="due">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                        </svg>
+                                    </button>
+                                    <button class="next-month" data-calendar="due">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="weekdays">
+                                <span>일</span>
+                                <span>월</span>
+                                <span>화</span>
+                                <span>수</span>
+                                <span>목</span>
+                                <span>금</span>
+                                <span>토</span>
+                            </div>
+                            <div class="days" id="dueDateDays"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 우선순위 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">우선순위</label>
+                    <div class="flex space-x-2">
+                        <button type="button" class="priority-btn flex-1 px-3 py-2.5 border-2 border-orange-200 text-orange-600 rounded-xl text-sm font-medium transition-all hover:bg-orange-50 focus:outline-none" data-priority="high">
+                            🔴 높음 우선순위
+                        </button>
+                        <button type="button" class="priority-btn priority-selected flex-1 px-3 py-2.5 border-2 border-orange-300 bg-orange-50 text-orange-700 rounded-xl text-sm font-medium transition-all focus:outline-none" data-priority="medium">
+                            🟡 보통 우선순위
+                        </button>
+                        <button type="button" class="priority-btn flex-1 px-3 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl text-sm font-medium transition-all hover:bg-gray-50 focus:outline-none" data-priority="low">
+                            🟢 낮음 우선순위
+                        </button>
+                    </div>
+                    <input type="hidden" id="taskPriority" value="medium">
+                </div>
+
+                <!-- 버튼 영역 -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                    <button type="button" id="cancelTaskBtn" class="px-6 py-2.5 text-gray-600 hover:text-gray-800 font-medium transition-colors">취소</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium transition-colors flex items-center space-x-2">
+                        <span>+ 할 일 추가</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 새 프로젝트 모달 -->
+    <div id="newProjectModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
+            <div class="px-8 py-6 border-b border-gray-100">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900">새 프로젝트 생성</h3>
+                </div>
+                <p class="text-sm text-gray-600 mt-2">새로운 프로젝트를 생성하고 팀과 함께 작업하세요</p>
+            </div>
+            <form id="newProjectForm" class="p-8 space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        프로젝트 이름 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="projectName" placeholder="프로젝트 이름을 입력하세요" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">프로젝트 설명</label>
+                    <textarea id="projectDescription" rows="4" placeholder="프로젝트에 대한 간단한 설명을 입력하세요" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">프로젝트 색상</label>
+                    <div class="flex space-x-3">
+                        <button type="button" data-color="blue" class="w-12 h-12 bg-blue-500 rounded-xl color-option border-3 border-blue-600 shadow-lg transition-transform hover:scale-105"></button>
+                        <button type="button" data-color="green" class="w-12 h-12 bg-green-500 rounded-xl color-option border-3 border-transparent shadow-lg transition-transform hover:scale-105"></button>
+                        <button type="button" data-color="purple" class="w-12 h-12 bg-purple-500 rounded-xl color-option border-3 border-transparent shadow-lg transition-transform hover:scale-105"></button>
+                        <button type="button" data-color="red" class="w-12 h-12 bg-red-500 rounded-xl color-option border-3 border-transparent shadow-lg transition-transform hover:scale-105"></button>
+                        <button type="button" data-color="yellow" class="w-12 h-12 bg-yellow-500 rounded-xl color-option border-3 border-transparent shadow-lg transition-transform hover:scale-105"></button>
+                        <button type="button" data-color="indigo" class="w-12 h-12 bg-indigo-500 rounded-xl color-option border-3 border-transparent shadow-lg transition-transform hover:scale-105"></button>
+                    </div>
+                    <input type="hidden" id="projectColor" value="blue">
+                </div>
+                <div class="flex justify-end space-x-3 pt-6 border-t border-gray-100">
+                    <button type="button" id="cancelProjectBtn" class="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors">취소</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium transition-colors flex items-center space-x-2">
+                        <span>+ 프로젝트 생성</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 프로젝트 삭제 확인 모달 -->
+    <div id="deleteProjectModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.764 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">프로젝트 삭제</h3>
+                </div>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-600 mb-4">
+                    <span class="font-medium" id="deleteProjectName">프로젝트</span>를 정말 삭제하시겠습니까?
+                </p>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-start space-x-2">
+                        <svg class="w-5 h-5 text-yellow-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.764 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                        <div class="text-sm text-yellow-800">
+                            <p class="font-medium">주의사항</p>
+                            <p>이 프로젝트와 관련된 모든 할 일도 함께 삭제됩니다. 삭제된 데이터는 복구할 수 없습니다.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancelDeleteBtn" class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors">취소</button>
+                    <button type="button" id="confirmDeleteBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">삭제</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 할 일 상세/편집 모달 -->
+    <div id="taskDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div id="taskDetailModalContainer" class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden transition-all duration-300">
+            <!-- 헤더 영역 -->
+            <div class="bg-gradient-to-r from-purple-600 to-blue-600 px-6 py-6 text-white relative">
+                <div class="absolute top-4 right-4 flex items-center space-x-2">
+                    <button id="toggleModalSizeBtn" class="text-white hover:text-gray-200 transition-colors p-2 rounded-lg hover:bg-white hover:bg-opacity-10" title="전체보기/기본크기">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+                        </svg>
+                    </button>
+                    <button id="closeTaskDetailBtn" class="text-white hover:text-gray-200 transition-colors p-2">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex items-start space-x-4 pr-20">
+                    <div class="bg-white bg-opacity-20 rounded-lg p-3">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 id="taskDetailTitle" class="text-xl font-bold mb-1">할 일 상세</h3>
+                        <p class="text-purple-100 text-sm">할 일의 상세 정보와 댓글을 확인하세요</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 메인 콘텐츠 영역 -->
+            <div id="taskDetailMainContent" class="flex h-full max-h-[65vh]">
+                <!-- 왼쪽: 할 일 정보 -->
+                <div class="w-[45%] p-6 overflow-y-auto border-r border-gray-200">
+                    <div id="taskDetailContent" class="space-y-6">
+                        <!-- 할 일 상세 내용이 여기에 표시됩니다 -->
+                    </div>
+                </div>
+                
+                <!-- 오른쪽: 댓글 영역 -->
+                <div class="w-[55%] flex flex-col">
+                    <!-- 댓글 헤더 -->
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-lg font-semibold text-gray-900">댓글</h4>
+                            <span id="commentsCount" class="bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded-full">0</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 댓글 목록 -->
+                    <div id="commentsList" class="flex-1 p-4 space-y-4 overflow-y-auto">
+                        <!-- 댓글들이 여기에 동적으로 추가됩니다 -->
+                    </div>
+                    
+                    <!-- 새 댓글 입력 -->
+                    <div class="p-4 border-t border-gray-200 bg-gray-50">
+                        <form id="newCommentForm">
+                            <div class="space-y-3">
+                                <textarea id="newCommentText" rows="2" placeholder="댓글을 입력하세요..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none text-sm"></textarea>
+                                <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors">댓글 추가</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 하단 액션 버튼들 -->
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between">
+                <button id="completeTaskBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                    완료하기
+                </button>
+                <div class="flex space-x-3">
+                    <button id="editTaskBtn" class="border border-gray-300 text-gray-700 hover:text-gray-900 hover:border-gray-400 px-6 py-2 rounded-lg font-medium transition-colors">
+                        편집
+                    </button>
+                    <button id="deleteTaskBtn" class="border border-red-300 text-red-600 hover:text-red-700 hover:border-red-400 px-6 py-2 rounded-lg font-medium transition-colors">
+                        삭제
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
