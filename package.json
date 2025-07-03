@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npx serve . -l 3000",
     "start": "npx serve . -l 3000",
-    "build": "echo 'Static build - no build step required'",
+    "build": "mkdir public && cp index.html style.css script.js public",
     "preview": "npx serve . -l 4173"
   },
   "keywords": [
@@ -28,10 +28,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/smart-teamwork.git"
+    "url": "git+https://github.com/Ventus-Work/smart-teamwork.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/smart-teamwork/issues"
+    "url": "https://github.com/Ventus-Work/smart-teamwork/issues"
   },
-  "homepage": "https://github.com/yourusername/smart-teamwork#readme"
+  "homepage": "https://github.com/Ventus-Work/smart-teamwork#readme"
 }
