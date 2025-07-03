@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npx serve . -l 3000",
     "start": "npx serve . -l 3000",
-    "build": "mkdir public && cp index.html style.css script.js public",
+    "build": "shx mkdir -p public && shx cp -r *.html *.css *.js images public",
     "preview": "npx serve . -l 4173"
   },
   "keywords": [
@@ -19,9 +19,9 @@
   ],
   "author": "Smart Teamwork Team",
   "license": "MIT",
-  "dependencies": {},
   "devDependencies": {
-    "serve": "^14.2.1"
+    "serve": "^14.2.1",
+    "shx": "^0.4.0"
   },
   "engines": {
     "node": ">=16"
