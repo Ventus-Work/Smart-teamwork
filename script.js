@@ -249,85 +249,9 @@ function setupEventListeners() {
     
     // 캘린더 초기화는 initCalendars에서 처리하므로 여기서는 제거
     
-    // 캘린더 아이콘 클릭 이벤트 (이벤트 위임 방식)
-    document.addEventListener('click', function(e) {
-        console.log('Document click detected on:', e.target.tagName, e.target.className);
-        
-        if (e.target.classList.contains('calendar-icon')) {
-            console.log('Calendar icon clicked via delegation:', e.target.dataset.calendar);
-            e.preventDefault();
-            e.stopPropagation();
-            const calendarType = e.target.dataset.calendar;
-            toggleCalendar(calendarType);
-        }
-    });
+    // 기존 커스텀 달력 코드 제거됨 - HTML5 date input 사용
     
-    // 캘린더 토글 함수
-    function toggleCalendar(calendarType) {
-        console.log('Toggling calendar:', calendarType);
-        
-        const startDateCalendar = document.getElementById('startDateCalendar');
-        const dueDateCalendar = document.getElementById('dueDateCalendar');
-        
-        if (!startDateCalendar || !dueDateCalendar) {
-            console.error('Calendar elements not found');
-            return;
-        }
-        
-        if (calendarType === 'start') {
-            // 마감일 캘린더 닫기
-            dueDateCalendar.style.display = 'none';
-            
-            // 시작일 캘린더 토글
-            if (startDateCalendar.style.display === 'block') {
-                startDateCalendar.style.display = 'none';
-            } else {
-                startDateCalendar.style.display = 'block';
-                // 달력 위치 조정
-                const icon = document.querySelector('.calendar-icon[data-calendar="start"]');
-                if (icon) adjustCalendarPosition(startDateCalendar, icon);
-                
-                // 월, 년 선택 옵션 업데이트
-                const startMonthSelect = document.getElementById('startMonthSelect');
-                const startYearSelect = document.getElementById('startYearSelect');
-                if (startMonthSelect && startYearSelect) {
-                    updateMonthYearOptions(startMonthSelect, startYearSelect, calendarState.start.month, calendarState.start.year);
-                }
-                
-                // 날짜 그리드 업데이트
-                const startDateDays = document.getElementById('startDateDays');
-                if (startDateDays) {
-                    updateCalendarDays(startDateDays, calendarState.start.year, calendarState.start.month, calendarState.start.date, 'start');
-                }
-            }
-        } else if (calendarType === 'due') {
-            // 시작일 캘린더 닫기
-            startDateCalendar.style.display = 'none';
-            
-            // 마감일 캘린더 토글
-            if (dueDateCalendar.style.display === 'block') {
-                dueDateCalendar.style.display = 'none';
-            } else {
-                dueDateCalendar.style.display = 'block';
-                // 달력 위치 조정
-                const icon = document.querySelector('.calendar-icon[data-calendar="due"]');
-                if (icon) adjustCalendarPosition(dueDateCalendar, icon);
-                
-                // 월, 년 선택 옵션 업데이트
-                const dueMonthSelect = document.getElementById('dueMonthSelect');
-                const dueYearSelect = document.getElementById('dueYearSelect');
-                if (dueMonthSelect && dueYearSelect) {
-                    updateMonthYearOptions(dueMonthSelect, dueYearSelect, calendarState.due.month, calendarState.due.year);
-                }
-                
-                // 날짜 그리드 업데이트
-                const dueDateDays = document.getElementById('dueDateDays');
-                if (dueDateDays) {
-                    updateCalendarDays(dueDateDays, calendarState.due.year, calendarState.due.month, calendarState.due.date, 'due');
-                }
-            }
-        }
-    }
+    // 기존 복잡한 커스텀 달력 함수들 제거됨 - HTML5 date input 사용
     
     // 할 일 상세 모달 액션
     elements.editTaskBtn.addEventListener('click', handleEditTask);
@@ -608,25 +532,44 @@ async function handleAuthSuccess(session) {
 
 // 사용자 프로필 확인/생성
 async function ensureUserProfile() {
-    const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', currentUser.id)
-        .single();
-    
-    if (error && error.code === 'PGRST116') {
-        // 프로필이 없으면 생성
-        const { error: insertError } = await supabase
+    try {
+        const { data: profile, error } = await supabase
             .from('profiles')
-            .insert({
-                id: currentUser.id,
-                email: currentUser.email,
-                full_name: currentUser.user_metadata?.full_name || currentUser.email,
-                avatar_url: currentUser.user_metadata?.avatar_url
-            });
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
         
-        if (insertError) throw insertError;
-    } else if (error) {
+        if (error && error.code === 'PGRST116') {
+            // 프로필이 없으면 생성
+            const { error: insertError } = await supabase
+                .from('profiles')
+                .insert({
+                    id: currentUser.id,
+                    email: currentUser.email,
+                    full_name: currentUser.user_metadata?.full_name || currentUser.email,
+                    avatar_url: currentUser.user_metadata?.avatar_url || null
+                });
+            
+            if (insertError) {
+                console.error('Profile creation error:', insertError);
+                throw insertError;
+            }
+        } else if (error) {
+            console.error('Profile fetch error:', error);
+            // profiles 테이블이 없는 경우 조용히 넘어감
+            if (error.code === '42P01') {
+                console.warn('Profiles table does not exist, skipping profile setup');
+                return;
+            }
+            throw error;
+        }
+    } catch (error) {
+        console.error('ensureUserProfile error:', error);
+        // 테이블이 없는 경우에도 앱이 계속 작동하도록 함
+        if (error.code === '42P01') {
+            console.warn('Database table missing, continuing without profile');
+            return;
+        }
         throw error;
     }
 }
@@ -1299,8 +1242,8 @@ async function handleNewTask(e) {
             title: formData.get('title') || document.getElementById('taskTitle').value,
             description: formData.get('description') || document.getElementById('taskDescription').value,
             project_id: formData.get('project') || document.getElementById('taskProject').value,
-            start_date: formData.get('start_date') || document.getElementById('taskStartDate')?.value || null,
-            due_date: formData.get('due_date') || document.getElementById('taskDueDate').value || null,
+            start_date: document.getElementById('taskStartDate').value || null,
+            due_date: document.getElementById('taskDueDate').value || null,
             priority: formData.get('priority') || document.getElementById('taskPriority').value,
             workspace_id: currentWorkspace.id,
             created_by: currentUser.id,

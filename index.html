@@ -684,83 +684,15 @@
                     <textarea id="taskDescription" rows="3" placeholder="상세 설명 (선택사항)" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 resize-none"></textarea>
                 </div>
 
-                <!-- 시작일과 마감일 -->
+                <!-- 시작일과 마감일 - 새로운 HTML5 date input 사용 -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="date-picker-container">
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">시작일</label>
-                        <div class="date-input-container">
-                            <input type="text" id="taskStartDateDisplay" readonly placeholder="YYYY-MM-DD" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50">
-                            <div class="calendar-icon" data-calendar="start"></div>
-                            <input type="hidden" id="taskStartDate">
-                        </div>
-                        <div id="startDateCalendar" class="custom-calendar">
-                            <div class="calendar-header">
-                                <div class="month-year">
-                                    <select id="startMonthSelect"></select>
-                                    <select id="startYearSelect"></select>
-                                </div>
-                                <div class="calendar-nav">
-                                    <button class="prev-month" data-calendar="start">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                                        </svg>
-                                    </button>
-                                    <button class="next-month" data-calendar="start">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="weekdays">
-                                <span>일</span>
-                                <span>월</span>
-                                <span>화</span>
-                                <span>수</span>
-                                <span>목</span>
-                                <span>금</span>
-                                <span>토</span>
-                            </div>
-                            <div class="days" id="startDateDays"></div>
-                        </div>
+                        <input type="date" id="taskStartDate" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50">
                     </div>
-                    <div class="date-picker-container">
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">마감일</label>
-                        <div class="date-input-container">
-                            <input type="text" id="taskDueDateDisplay" readonly placeholder="YYYY-MM-DD" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50">
-                            <div class="calendar-icon" data-calendar="due"></div>
-                            <input type="hidden" id="taskDueDate">
-                        </div>
-                        <div id="dueDateCalendar" class="custom-calendar">
-                            <div class="calendar-header">
-                                <div class="month-year">
-                                    <select id="dueMonthSelect"></select>
-                                    <select id="dueYearSelect"></select>
-                                </div>
-                                <div class="calendar-nav">
-                                    <button class="prev-month" data-calendar="due">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                                        </svg>
-                                    </button>
-                                    <button class="next-month" data-calendar="due">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="weekdays">
-                                <span>일</span>
-                                <span>월</span>
-                                <span>화</span>
-                                <span>수</span>
-                                <span>목</span>
-                                <span>금</span>
-                                <span>토</span>
-                            </div>
-                            <div class="days" id="dueDateDays"></div>
-                        </div>
+                        <input type="date" id="taskDueDate" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50">
                     </div>
                 </div>
 
