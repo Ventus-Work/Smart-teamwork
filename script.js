@@ -10,7 +10,7 @@ const getEnvVar = (name, fallback = '') => {
 
 // Supabase 설정 (환경변수에서 로드)
 const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', 'https://masylwzkikmbwlvfeucz.supabase.co');
-const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hc3lsd3praWttYndsdmZldWN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0NDA3NjAsImV4cCI6MjA2NzAxNjc2MH0.sCFCHGUdwWoXUpZn5TSO1xKYU2D4sXw-davY6AJdEg4');
+const SUPABASE_ANON_KEY = getEnvVar('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hc3lsd3praWttYndsdmZldWN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0NDA3NjAsImV4cCI6MjA2NzAxNjc2MH0.sCFCHGUdwWoXUpZn5TSO1xKYU2D4sXw-davY6AJdEg4');
 
 // Supabase 클라이언트 초기화
 let supabase;
@@ -1199,8 +1199,8 @@ function closeModal(modalId) {
         }
         
         // 폼 리셋
-        const form = modal.querySelector('form');
-        if (form) form.reset();
+        const modalForm = modal.querySelector('form');
+        if (modalForm) modalForm.reset();
     }
 }
 
@@ -1209,9 +1209,13 @@ async function handleNewTask(e) {
     e.preventDefault();
     
     try {
+        const form = e.target;
+        const isEditMode = form.dataset.editMode === 'true';
+        const editTaskId = form.dataset.editTaskId;
+        
         const formData = new FormData(e.target);
         const taskData = {
-            id: isDemoMode ? `demo-task-${Date.now()}` : undefined,
+            id: isEditMode ? editTaskId : (isDemoMode ? `demo-task-${Date.now()}` : undefined),
             title: formData.get('title') || document.getElementById('taskTitle').value,
             description: formData.get('description') || document.getElementById('taskDescription').value,
             project_id: formData.get('project') || document.getElementById('taskProject').value,
@@ -1221,8 +1225,8 @@ async function handleNewTask(e) {
             workspace_id: currentWorkspace.id,
             created_by: currentUser.id,
             assigned_to: currentUser.id,
-            status: 'pending',
-            created_at: new Date().toISOString()
+            status: isEditMode ? undefined : 'pending', // 편집 모드에서는 상태 변경하지 않음
+            created_at: isEditMode ? undefined : new Date().toISOString()
         };
         
         if (!taskData.title.trim()) {
@@ -1236,7 +1240,6 @@ async function handleNewTask(e) {
         }
         
         if (isDemoMode) {
-            // 데모 모드에서는 로컬 배열에 추가
             const project = currentProjects.find(p => p.id === taskData.project_id);
             taskData.projects = project ? { name: project.name, color: project.color } : null;
             taskData.assigned_user = { 
@@ -1244,14 +1247,47 @@ async function handleNewTask(e) {
                 avatar_url: currentUser.user_metadata.avatar_url 
             };
             
-            currentTasks.unshift(taskData);
+            if (isEditMode) {
+                // 편집 모드: 기존 할 일 업데이트
+                const taskIndex = currentTasks.findIndex(t => t.id === editTaskId);
+                if (taskIndex !== -1) {
+                    // 기존 데이터를 유지하면서 업데이트
+                    currentTasks[taskIndex] = {
+                        ...currentTasks[taskIndex],
+                        ...taskData,
+                        projects: taskData.projects,
+                        assigned_user: taskData.assigned_user
+                    };
+                }
+            } else {
+                // 새 할 일 추가
+                currentTasks.unshift(taskData);
+            }
             saveDemoDataToStorage();
         } else {
-            const { error } = await supabase
-                .from('todos')
-                .insert(taskData);
-            
-            if (error) throw error;
+            if (isEditMode) {
+                // 편집 모드: 기존 할 일 업데이트
+                const { error } = await supabase
+                    .from('todos')
+                    .update({
+                        title: taskData.title,
+                        description: taskData.description,
+                        project_id: taskData.project_id,
+                        start_date: taskData.start_date,
+                        due_date: taskData.due_date,
+                        priority: taskData.priority
+                    })
+                    .eq('id', editTaskId);
+                
+                if (error) throw error;
+            } else {
+                // 새 할 일 추가
+                const { error } = await supabase
+                    .from('todos')
+                    .insert(taskData);
+                
+                if (error) throw error;
+            }
             
             await loadTasks();
         }
@@ -1260,12 +1296,23 @@ async function handleNewTask(e) {
         renderCurrentView();
         
         // 폼 초기화
-        document.getElementById('newTaskForm').reset();
+        const taskForm = document.getElementById('newTaskForm');
+        taskForm.reset();
+        taskForm.removeAttribute('data-edit-mode');
+        taskForm.removeAttribute('data-edit-task-id');
+        
+        // 모달 제목 및 버튼 텍스트 초기화
+        const modal = elements.newTaskModal;
+        const modalTitle = modal.querySelector('h3');
+        const submitBtn = taskForm.querySelector('button[type="submit"]');
+        modalTitle.textContent = '할 일 관리';
+        submitBtn.innerHTML = '<span>+ 할 일 추가</span>';
+        
         // 우선순위 버튼 초기화
         selectTaskPriority('medium');
         
         closeModal('newTaskModal');
-        showNotification('새 할 일이 추가되었습니다.', 'success');
+        showNotification(isEditMode ? '할 일이 수정되었습니다.' : '새 할 일이 추가되었습니다.', 'success');
         
     } catch (error) {
         console.error('할 일 추가 오류:', error);
@@ -1656,8 +1703,240 @@ async function handleCompleteTask() {
 
 // 할 일 편집
 async function handleEditTask() {
-    // TODO: 할 일 편집 모달 구현
-    showNotification('편집 기능은 곧 추가될 예정입니다.', 'info');
+    try {
+        if (!currentTaskId) return;
+        
+        const task = currentTasks.find(t => t.id === currentTaskId);
+        if (!task) {
+            showNotification('할 일을 찾을 수 없습니다.', 'error');
+            return;
+        }
+        
+        // 인라인 편집 모드로 전환
+        await toggleInlineEditMode(task);
+    } catch (error) {
+        console.error('Error editing task:', error);
+        showNotification('할 일 편집 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// 인라인 편집 모드 토글
+async function toggleInlineEditMode(task) {
+    const contentDiv = document.getElementById('taskDetailContent');
+    const editBtn = document.getElementById('editTaskBtn');
+    
+    if (editBtn.textContent.trim() === '편집') {
+        // 편집 모드로 전환
+        editBtn.textContent = '취소';
+        editBtn.classList.remove('border-gray-300', 'text-gray-700');
+        editBtn.classList.add('border-red-300', 'text-red-700');
+        
+        // 편집 폼 생성
+        contentDiv.innerHTML = createEditForm(task);
+        
+        // 저장 버튼을 완료 버튼 자리에 배치
+        const completeBtn = document.getElementById('completeTaskBtn');
+        completeBtn.textContent = '저장';
+        completeBtn.onclick = saveInlineEdit;
+        
+    } else {
+        // 보기 모드로 전환
+        editBtn.textContent = '편집';
+        editBtn.classList.remove('border-red-300', 'text-red-700');
+        editBtn.classList.add('border-gray-300', 'text-gray-700');
+        
+        // 원래 내용으로 복원 - openTaskDetail로 전체 새로고침
+        await openTaskDetail(currentTaskId);
+        
+        // 완료 버튼 복원
+        const completeBtn = document.getElementById('completeTaskBtn');
+        completeBtn.textContent = '완료하기';
+        completeBtn.onclick = handleCompleteTask;
+    }
+}
+
+// 편집 폼 생성
+function createEditForm(task) {
+    const project = currentProjects.find(p => p.id === task.project_id);
+    
+    return `
+        <div class="space-y-6">
+            <!-- 프로젝트 선택 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">프로젝트</label>
+                <select id="editTaskProject" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+                    ${currentProjects.map(p => `
+                        <option value="${p.id}" ${p.id === task.project_id ? 'selected' : ''}>
+                            ${p.name}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            
+            <!-- 할 일 제목 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">제목</label>
+                <input type="text" id="editTaskTitle" value="${task.title || ''}" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+            </div>
+            
+            <!-- 설명 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">설명</label>
+                <textarea id="editTaskDescription" rows="4" 
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none">${task.description || ''}</textarea>
+            </div>
+            
+            <!-- 상태 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">상태</label>
+                <select id="editTaskStatus" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+                    <option value="pending" ${task.status === 'pending' ? 'selected' : ''}>대기 중</option>
+                    <option value="in_progress" ${task.status === 'in_progress' ? 'selected' : ''}>진행 중</option>
+                    <option value="completed" ${task.status === 'completed' ? 'selected' : ''}>완료</option>
+                </select>
+            </div>
+            
+            <!-- 우선순위 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">우선순위</label>
+                <select id="editTaskPriority" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+                    <option value="low" ${task.priority === 'low' ? 'selected' : ''}>낮음</option>
+                    <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>보통</option>
+                    <option value="high" ${task.priority === 'high' ? 'selected' : ''}>높음</option>
+                </select>
+            </div>
+            
+            <!-- 날짜 -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">시작일</label>
+                    <input type="date" id="editTaskStartDate" value="${task.start_date ? task.start_date.split('T')[0] : ''}" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">마감일</label>
+                    <input type="date" id="editTaskDueDate" value="${task.due_date ? task.due_date.split('T')[0] : ''}" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 인라인 편집 저장
+async function saveInlineEdit() {
+    try {
+        if (!currentTaskId) return;
+        
+        const updatedTask = {
+            id: currentTaskId,
+            project_id: document.getElementById('editTaskProject').value,
+            title: document.getElementById('editTaskTitle').value.trim(),
+            description: document.getElementById('editTaskDescription').value.trim(),
+            status: document.getElementById('editTaskStatus').value,
+            priority: document.getElementById('editTaskPriority').value,
+            start_date: document.getElementById('editTaskStartDate').value || null,
+            due_date: document.getElementById('editTaskDueDate').value || null
+        };
+        
+        if (!updatedTask.title) {
+            showNotification('할 일 제목을 입력해주세요.', 'error');
+            return;
+        }
+        
+        if (isDemoMode) {
+            // 데모 모드에서는 로컬 배열 업데이트
+            const taskIndex = currentTasks.findIndex(t => t.id === currentTaskId);
+            if (taskIndex !== -1) {
+                currentTasks[taskIndex] = {
+                    ...currentTasks[taskIndex],
+                    ...updatedTask,
+                    updated_at: new Date().toISOString()
+                };
+                saveDemoDataToStorage();
+            }
+        } else {
+            // Supabase 업데이트
+            const { error } = await supabase
+                .from('todos')
+                .update({
+                    project_id: updatedTask.project_id,
+                    title: updatedTask.title,
+                    description: updatedTask.description,
+                    status: updatedTask.status,
+                    priority: updatedTask.priority,
+                    start_date: updatedTask.start_date,
+                    due_date: updatedTask.due_date,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', currentTaskId);
+            
+            if (error) throw error;
+            await loadTasks();
+        }
+        
+        // 업데이트된 할 일 정보로 상세 보기 새로고침
+        const task = currentTasks.find(t => t.id === currentTaskId);
+        if (task) {
+            await toggleInlineEditMode(task); // 편집 모드 해제
+        }
+        
+        await updateStats();
+        renderCurrentView();
+        showNotification('할 일이 수정되었습니다.', 'success');
+        
+    } catch (error) {
+        console.error('Error saving task:', error);
+        showNotification('할 일 저장 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// 할 일 편집 모달 열기
+function openEditTaskModal(task) {
+    // 새 할 일 모달을 편집 모드로 전환
+    const modal = elements.newTaskModal;
+    const editForm = elements.newTaskForm;
+    const modalTitle = modal.querySelector('h3');
+    const submitBtn = editForm.querySelector('button[type="submit"]');
+    
+    // 제목 및 버튼 텍스트 변경
+    modalTitle.textContent = '할 일 편집';
+    submitBtn.innerHTML = '<span>수정하기</span>';
+    
+    // 폼에 기존 데이터 채우기
+    elements.taskProject.value = task.project_id || '';
+    elements.taskTitle.value = task.title || '';
+    elements.taskDescription.value = task.description || '';
+    elements.taskStartDateDisplay.value = task.start_date ? formatDateForInput(task.start_date) : '';
+    elements.taskDueDateDisplay.value = task.due_date ? formatDateForInput(task.due_date) : '';
+    elements.taskStartDate.value = task.start_date || '';
+    elements.taskDueDate.value = task.due_date || '';
+    elements.taskPriority.value = task.priority || 'medium';
+    
+    // 우선순위 버튼 상태 업데이트
+    document.querySelectorAll('.priority-btn').forEach(btn => {
+        btn.classList.remove('priority-selected', 'border-orange-300', 'bg-orange-50', 'text-orange-700');
+        btn.classList.add('border-orange-200', 'text-orange-600');
+        
+        if (btn.dataset.priority === task.priority) {
+            btn.classList.add('priority-selected', 'border-orange-300', 'bg-orange-50', 'text-orange-700');
+            btn.classList.remove('border-orange-200', 'text-orange-600');
+        }
+    });
+    
+    // 편집 모드 플래그 설정
+    editForm.dataset.editMode = 'true';
+    editForm.dataset.editTaskId = task.id;
+    
+    modal.classList.remove('hidden');
+}
+
+// 날짜 포맷팅 함수
+function formatDateForInput(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
 }
 
 // 할 일 삭제
@@ -3269,7 +3548,8 @@ function showEventDetail(event) {
     
     // 편집 버튼 이벤트
     document.getElementById('editEventBtn').onclick = () => {
-        // 할 일 편집 기능 구현 (필요시)
+        // 할 일 편집 모달 열기
+        openTaskDetail(event.id);
         modal.classList.add('hidden');
     };
     

@@ -61,7 +61,7 @@ smart-teamwork/
 1. GitHub 저장소 연결
 2. Vercel 환경변수 설정:
    - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+   - `SUPABASE_ANON_KEY`
 
 ## 🔧 Supabase 설정
 
