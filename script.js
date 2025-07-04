@@ -144,7 +144,125 @@ function showMainApp() {
 // 대시보드 업데이트 함수 추가
 function updateDashboard() {
     console.log("대시보드 업데이트 중...");
-    // 여기에 대시보드 업데이트 로직 추가
+    
+    // 통계 업데이트
+    updateDashboardStats();
+    
+    // 최근 할일 목록 업데이트
+    updateRecentTasksList();
+}
+
+// 대시보드 통계 업데이트
+function updateDashboardStats() {
+    try {
+        const totalTasks = currentTasks.length;
+        const pendingTasks = currentTasks.filter(t => t.status === 'todo').length;
+        const inProgressTasks = currentTasks.filter(t => t.status === 'doing').length;
+        const completedTasks = currentTasks.filter(t => t.status === 'done').length;
+        const totalProjects = currentProjects.length;
+        
+        // 통계 카드 업데이트
+        const statsCards = document.querySelectorAll('.stats-card p');
+        if (statsCards.length >= 4) {
+            statsCards[0].textContent = totalTasks;
+            statsCards[1].textContent = pendingTasks;
+            statsCards[2].textContent = inProgressTasks;
+            statsCards[3].textContent = totalProjects;
+        }
+        
+        console.log('대시보드 통계 업데이트 완료:', { totalTasks, pendingTasks, inProgressTasks, completedTasks, totalProjects });
+    } catch (error) {
+        console.error('대시보드 통계 업데이트 실패:', error);
+    }
+}
+
+// 최근 할일 목록 업데이트
+function updateRecentTasksList() {
+    try {
+        const recentTasksContainer = document.querySelector('.recent-tasks-container');
+        if (!recentTasksContainer) {
+            console.warn('최근 할일 컨테이너를 찾을 수 없습니다.');
+            return;
+        }
+        
+        // 최근 5개 할일 가져오기 (진행중과 대기 상태 우선)
+        const recentTasks = currentTasks
+            .filter(task => task.status !== 'done')
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            .slice(0, 5);
+        
+        // 기존 task-item들 제거 (padding container 내부)
+        const paddingContainer = recentTasksContainer.querySelector('div:last-child');
+        if (paddingContainer) {
+            // 기존 task-item들만 제거
+            const existingTaskItems = paddingContainer.querySelectorAll('.task-item');
+            existingTaskItems.forEach(item => item.remove());
+            
+            // 새로운 할일 목록 렌더링
+            if (recentTasks.length === 0) {
+                paddingContainer.innerHTML = `
+                    <div style="text-align: center; padding: var(--space-8); color: var(--text-tertiary);">
+                        <svg style="width: 3rem; height: 3rem; margin: 0 auto var(--space-4) auto; opacity: 0.5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        <p>진행 중인 할일이 없습니다.</p>
+                        <p style="font-size: var(--text-sm); margin-top: var(--space-2);">새로운 할일을 추가해보세요!</p>
+                    </div>
+                `;
+            } else {
+                recentTasks.forEach(task => {
+                    const project = currentProjects.find(p => p.id === task.project_id);
+                    const projectName = project ? project.name : '프로젝트 없음';
+                    const projectColor = project ? project.color : '#6B7280';
+                    
+                    const taskElement = document.createElement('div');
+                    taskElement.className = 'task-item';
+                    taskElement.setAttribute('data-task-id', task.id);
+                    taskElement.style.cssText = 'cursor: pointer; padding: var(--space-4); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); margin-bottom: var(--space-3); transition: all 0.2s ease;';
+                    
+                    const statusIcon = task.status === 'doing' ? 
+                        `<div style="width: 0.5rem; height: 0.5rem; background-color: var(--warning-500); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div>` : '';
+                    
+                    const statusColor = task.status === 'doing' ? 'var(--warning-500)' : 'var(--neutral-300)';
+                    
+                    taskElement.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: var(--space-3);">
+                            <div style="width: 1rem; height: 1rem; border: 2px solid ${statusColor}; border-radius: 50%; position: relative; flex-shrink: 0;">
+                                ${statusIcon}
+                            </div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); flex-wrap: wrap;">
+                                    <h3 style="font-size: var(--text-base); font-weight: var(--font-medium); color: var(--text-primary);">${task.title}</h3>
+                                    <span style="background-color: ${projectColor}20; color: ${projectColor}; padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); font-size: var(--text-xs); font-weight: var(--font-medium); white-space: nowrap;">${projectName}</span>
+                                    <span class="priority-${task.priority}" style="font-size: var(--text-sm); white-space: nowrap;">● ${task.priority === 'high' ? '높음' : task.priority === 'medium' ? '보통' : '낮음'}</span>
+                                </div>
+                                <p style="font-size: var(--text-sm); color: var(--text-tertiary); margin-bottom: var(--space-2);">${task.description || '설명 없음'}</p>
+                                <div style="display: flex; align-items: center; gap: var(--space-4); font-size: var(--text-xs); color: var(--text-tertiary); flex-wrap: wrap;">
+                                    ${task.start_date ? `<span>시작일: ${new Date(task.start_date).toLocaleDateString('ko-KR')}</span>` : ''}
+                                    ${task.due_date ? `<span>마감일: ${new Date(task.due_date).toLocaleDateString('ko-KR')}</span>` : ''}
+                                </div>
+                            </div>
+                            <button class="btn btn-ghost btn-sm" style="flex-shrink: 0;" onclick="event.stopPropagation(); openTaskDetail('${task.id}')">
+                                <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    
+                    paddingContainer.appendChild(taskElement);
+                });
+            }
+        }
+        
+        console.log('최근 할일 목록 업데이트 완료:', recentTasks.length, '개 항목');
+        
+        // 이벤트 리스너 재설정
+        setupEventListeners();
+        
+    } catch (error) {
+        console.error('최근 할일 목록 업데이트 실패:', error);
+    }
 }
 
 // 모달 관련 함수들
@@ -629,11 +747,24 @@ function setupEventListeners() {
     
     // 태스크 아이템 클릭 - 메인 대시보드의 할 일 목록에서 클릭
     const taskItems = document.querySelectorAll('.task-item');
+    console.log('할일 목록 클릭 이벤트 설정:', taskItems.length, '개의 아이템');
     taskItems.forEach(item => {
         item.addEventListener('click', function(e) {
             if (e.target.closest('.btn')) return; // 버튼 클릭은 무시
             
-            const taskId = this.dataset.taskId || 1; // 데이터셋에 ID가 없으면 기본값 1 사용
+            const taskId = this.dataset.taskId;
+            console.log('할일 아이템 클릭됨:', { 
+                taskId, 
+                dataset: this.dataset, 
+                element: this 
+            });
+            
+            if (!taskId) {
+                console.error('taskId가 없습니다. 기본값 1 사용');
+                showNotification('할 일 정보를 찾을 수 없습니다.', 'error');
+                return;
+            }
+            
             openTaskDetail(taskId);
         });
     });
@@ -1662,22 +1793,40 @@ function showDayTasksModal(date, tasks) {
 function openTaskDetail(taskId) {
     console.log('할 일 상세 보기 호출됨:', taskId, typeof taskId);
     
-    // 문자열 타입이면 숫자로 변환 시도
+    if (!taskId) {
+        console.error('taskId가 제공되지 않았습니다.');
+        showNotification('할 일을 찾을 수 없습니다.', 'error');
+        return;
+    }
+    
+    // ID 정규화 - 문자열과 숫자 모두 지원
+    let normalizedTaskId = taskId;
     if (typeof taskId === 'string') {
-        if (!isNaN(parseInt(taskId))) {
-            taskId = parseInt(taskId);
+        // 문자열이 숫자로 변환 가능한지 확인
+        const parsed = parseInt(taskId);
+        if (!isNaN(parsed)) {
+            normalizedTaskId = parsed;
         }
     }
     
-    const task = currentTasks.find(t => t.id === taskId);
+    // 두 가지 방법으로 task 검색 (원본 ID와 정규화된 ID 모두 시도)
+    let task = currentTasks.find(t => t.id === taskId) || 
+               currentTasks.find(t => t.id === normalizedTaskId) ||
+               currentTasks.find(t => String(t.id) === String(taskId));
+    
     if (!task) {
-        console.error('해당 ID의 작업을 찾을 수 없습니다:', taskId);
-        console.log('현재 작업 목록:', currentTasks);
+        console.error('해당 ID의 작업을 찾을 수 없습니다:', { 
+            원본ID: taskId, 
+            정규화ID: normalizedTaskId,
+            현재작업수: currentTasks.length,
+            작업ID목록: currentTasks.map(t => ({ id: t.id, type: typeof t.id, title: t.title }))
+        });
+        showNotification('선택한 할 일을 찾을 수 없습니다.', 'error');
         return;
     }
 
     console.log('작업 찾음:', task);
-    currentTaskId = taskId;
+    currentTaskId = task.id; // 실제 task의 ID 사용
     populateTaskDetailModal(task);
     openModal('taskDetailModal');
 }
@@ -2105,6 +2254,31 @@ function populateTaskDetailModal(task) {
     const createdElement = document.getElementById('taskDetailCreated');
     const assigneeElement = document.getElementById('taskDetailAssignee');
     
+    // 요소들이 실제로 존재하는지 확인
+    const missingElements = [];
+    const elementMap = {
+        'taskDetailTitle': titleElement,
+        'taskDetailMainTitle': mainTitleElement,
+        'taskDetailDescription': descriptionElement,
+        'taskDetailProject': projectElement,
+        'taskDetailPriority': priorityElement,
+        'taskDetailStatus': statusElement,
+        'taskDetailStartDate': startDateElement,
+        'taskDetailDueDate': dueDateElement
+    };
+    
+    Object.entries(elementMap).forEach(([id, element]) => {
+        if (!element) {
+            missingElements.push(id);
+        }
+    });
+    
+    if (missingElements.length > 0) {
+        console.error('다음 요소들을 찾을 수 없습니다:', missingElements);
+        showNotification('할 일 상세 정보를 표시하는 중 오류가 발생했습니다.', 'error');
+        return;
+    }
+    
     // 버튼 요소 가져오기
     const editTaskHeaderBtn = document.getElementById('editTaskHeader');
     const deleteTaskHeaderBtn = document.getElementById('deleteTaskHeader');
@@ -2137,7 +2311,7 @@ function populateTaskDetailModal(task) {
             handleTaskEdit();
         };
     } else {
-        console.error('편집 버튼을 찾을 수 없습니다.');
+        console.warn('편집 버튼을 찾을 수 없습니다. (ID: editTaskHeader)');
     }
     
     if (deleteTaskHeaderBtn) {
