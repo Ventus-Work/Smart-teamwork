@@ -9,16 +9,21 @@ const getEnvVar = (name, fallback = '') => {
 };
 
 // Supabase 설정 (환경변수에서 로드)
-const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', 'https://masylwzkikmbwlvfeucz.supabase.co');
-const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hc3lsd3praWttYndsdmZldWN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0NDA3NjAsImV4cCI6MjA2NzAxNjc2MH0.sCFCHGUdwWoXUpZn5TSO1xKYU2D4sXw-davY6AJdEg4');
+const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', '');
+const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY', '');
 
 // Supabase 클라이언트 초기화
-let supabase;
+let supabase = null;
 try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('Supabase 클라이언트 초기화 완료');
+    } else {
+        console.warn('Supabase 환경변수가 설정되지 않았습니다. 데모 모드로 실행됩니다.');
+    }
 } catch (error) {
     console.error('Supabase 초기화 실패:', error);
-    // 데모 모드로 fallback
+    supabase = null;
 }
 
 // 전역 변수
@@ -113,19 +118,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 로딩 표시
         showLoading();
         
-        // 인증 상태 확인
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            await handleAuthSuccess(session);
+        // 인증 상태 확인 (Supabase가 초기화된 경우에만)
+        if (supabase) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                await handleAuthSuccess(session);
+            } else {
+                showLoginScreen();
+            }
         } else {
+            // Supabase가 없는 경우 로그인 화면으로
             showLoginScreen();
         }
         
         // 이벤트 리스너 설정
         setupEventListeners();
         
-        // 실시간 구독 설정
-        setupRealtimeSubscriptions();
+        // 실시간 구독 설정 (Supabase가 초기화된 경우에만)
+        if (supabase) {
+            setupRealtimeSubscriptions();
+        }
         
     } catch (error) {
         console.error('초기화 오류:', error);
@@ -410,6 +422,11 @@ async function handleLogin() {
         elements.loginBtn.disabled = true;
         elements.loginBtn.innerHTML = '<div class="spinner"></div> 로그인 중...';
         
+        if (!supabase) {
+            showNotification('Supabase가 초기화되지 않았습니다. 데모 모드를 이용해주세요.', 'error');
+            return;
+        }
+        
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
@@ -483,6 +500,14 @@ async function handleDemoMode() {
 
 async function handleLogout() {
     try {
+        if (!supabase) {
+            // 데모 모드에서는 단순히 로그아웃 처리
+            currentUser = null;
+            currentWorkspace = null;
+            showLoginScreen();
+            return;
+        }
+        
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
         
@@ -832,8 +857,8 @@ function renderTasksList() {
                 <div class="w-20 h-20 mx-auto mb-6 text-gray-300">
                     ${emptyStateConfig.icon}
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">${emptyStateConfig.title}</h3>
-                <p class="text-gray-600 mb-4">${emptyStateConfig.description}</p>
+                <h3 class="text-lg font-medium text-gray-800 mb-2">${emptyStateConfig.title}</h3>
+                <p class="text-gray-700 mb-4">${emptyStateConfig.description}</p>
                 ${emptyStateConfig.showButton ? `
                     <button onclick="document.getElementById('newTaskBtn').click()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
                         ${emptyStateConfig.buttonText}
@@ -2281,14 +2306,16 @@ function loadDemoDataFromStorage() {
     if (savedComments) currentComments = JSON.parse(savedComments);
 }
 
-// 인증 상태 변경 리스너
-supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-        handleAuthSuccess(session);
-    } else if (event === 'SIGNED_OUT') {
-        showLoginScreen();
-    }
-});// 댓글 수정 처리
+// 인증 상태 변경 리스너 (Supabase가 초기화된 경우에만)
+if (supabase) {
+    supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+            handleAuthSuccess(session);
+        } else if (event === 'SIGNED_OUT') {
+            showLoginScreen();
+        }
+    });
+}// 댓글 수정 처리
 async function handleEditComment(commentId, newContent) {
     try {
         if (!newContent.trim()) {
@@ -2512,108 +2539,7 @@ function initializeCalendars() {
     console.log('Date input elements found successfully');
     
     // HTML5 date input은 별도 초기화가 필요하지 않으므로 함수 완료
-    
-    // 월 선택 변경 이벤트
-    if (startMonthSelect) {
-        startMonthSelect.addEventListener('change', function() {
-            calendarState.start.month = parseInt(this.value);
-            updateCalendarDays(startDateDays, calendarState.start.year, calendarState.start.month, calendarState.start.date, 'start');
-        });
-    }
-    
-    if (dueMonthSelect) {
-        dueMonthSelect.addEventListener('change', function() {
-            calendarState.due.month = parseInt(this.value);
-            updateCalendarDays(dueDateDays, calendarState.due.year, calendarState.due.month, calendarState.due.date, 'due');
-        });
-    }
-    
-    // 년 선택 변경 이벤트
-    if (startYearSelect) {
-        startYearSelect.addEventListener('change', function() {
-            calendarState.start.year = parseInt(this.value);
-            updateCalendarDays(startDateDays, calendarState.start.year, calendarState.start.month, calendarState.start.date, 'start');
-        });
-    }
-    
-    if (dueYearSelect) {
-        dueYearSelect.addEventListener('change', function() {
-            calendarState.due.year = parseInt(this.value);
-            updateCalendarDays(dueDateDays, calendarState.due.year, calendarState.due.month, calendarState.due.date, 'due');
-        });
-    }
-    
-    // 이전/다음 월 버튼 이벤트
-    document.querySelectorAll('.prev-month').forEach(button => {
-        button.addEventListener('click', function() {
-            const calendarType = this.dataset.calendar;
-            let { month, year } = calendarState[calendarType];
-            
-            if (month === 0) {
-                month = 11;
-                year--;
-            } else {
-                month--;
-            }
-            
-            calendarState[calendarType].month = month;
-            calendarState[calendarType].year = year;
-            
-            // 선택 옵션 업데이트
-            const monthSelect = document.getElementById(`${calendarType}MonthSelect`);
-            const yearSelect = document.getElementById(`${calendarType}YearSelect`);
-            updateMonthYearOptions(monthSelect, yearSelect, month, year);
-            
-            // 날짜 그리드 업데이트
-            const daysContainer = document.getElementById(`${calendarType}DateDays`);
-            updateCalendarDays(daysContainer, year, month, calendarState[calendarType].date, calendarType);
-        });
-    });
-    
-    document.querySelectorAll('.next-month').forEach(button => {
-        button.addEventListener('click', function() {
-            const calendarType = this.dataset.calendar;
-            let { month, year } = calendarState[calendarType];
-            
-            if (month === 11) {
-                month = 0;
-                year++;
-            } else {
-                month++;
-            }
-            
-            calendarState[calendarType].month = month;
-            calendarState[calendarType].year = year;
-            
-            // 선택 옵션 업데이트
-            const monthSelect = document.getElementById(`${calendarType}MonthSelect`);
-            const yearSelect = document.getElementById(`${calendarType}YearSelect`);
-            updateMonthYearOptions(monthSelect, yearSelect, month, year);
-            
-            // 날짜 그리드 업데이트
-            const daysContainer = document.getElementById(`${calendarType}DateDays`);
-            updateCalendarDays(daysContainer, year, month, calendarState[calendarType].date, calendarType);
-        });
-    });
-    
-    // 바깥 영역 클릭 시 캘린더 닫기
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.date-picker-container') && !e.target.closest('.custom-calendar')) {
-            if (startDateCalendar) startDateCalendar.style.display = 'none';
-            if (dueDateCalendar) dueDateCalendar.style.display = 'none';
-        }
-    });
-    
-    // 초기 상태 설정
-    if (startMonthSelect && startYearSelect && startDateDays) {
-        updateMonthYearOptions(startMonthSelect, startYearSelect, currentMonth, currentYear);
-        updateCalendarDays(startDateDays, currentYear, currentMonth, null, 'start');
-    }
-    
-    if (dueMonthSelect && dueYearSelect && dueDateDays) {
-        updateMonthYearOptions(dueMonthSelect, dueYearSelect, currentMonth, currentYear);
-        updateCalendarDays(dueDateDays, currentYear, currentMonth, null, 'due');
-    }
+
     
     // 달력 요소들이 실제로 존재하는지 확인
     console.log('Start calendar element:', startDateCalendar);

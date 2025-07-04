@@ -53,6 +53,62 @@
     }
 }
 
+/* 빈 상태 텍스트 가독성 개선 */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(10px);
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin: 2rem 0;
+}
+
+.empty-state h3 {
+    color: #374151 !important;
+    font-weight: 600;
+}
+
+.empty-state p {
+    color: #4B5563 !important;
+}
+
+/* 대시보드 카드 디자인 개선 */
+.stats-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+}
+
+/* 할 일 목록 컨테이너 개선 */
+#tasksList .bg-white {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 텍스트 대비 개선 */
+.text-gray-600 {
+    color: #4B5563 !important;
+}
+
+.text-gray-500 {
+    color: #6B7280 !important;
+}
+
+/* 버튼 텍스트 가독성 */
+.bg-gray-100 {
+    background-color: rgba(249, 250, 251, 0.9) !important;
+    color: #374151 !important;
+}
+
 /* 버튼 호버 효과 개선 */
 #loginBtn {
     position: relative;
