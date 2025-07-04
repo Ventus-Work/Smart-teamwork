@@ -1,10 +1,24 @@
 // 환경변수 설정
 const getEnvVar = (name, fallback = '') => {
-    // Vercel 환경변수 또는 브라우저 환경변수에서 읽기
-    if (typeof window !== 'undefined' && window.env) {
-        return window.env[name] || fallback;
+    // 1. Vercel 배포 환경변수 확인 (프로덕션 환경)
+    if (typeof process !== 'undefined' && process.env && process.env[name]) {
+        return process.env[name];
     }
-    // 개발 환경에서는 fallback 사용
+    
+    // 2. 윈도우 환경변수 확인 (개발 환경)
+    if (typeof window !== 'undefined') {
+        // 2.1 window.env (env.js에서 로드된 환경변수)
+        if (window.env && window.env[name]) {
+            return window.env[name];
+        }
+        
+        // 2.2 Vercel이 주입한 환경변수 (_env 또는 __NEXT_DATA__)
+        if (window._env && window._env[name]) {
+            return window._env[name];
+        }
+    }
+    
+    // 3. 기본값 반환
     return fallback;
 };
 
@@ -12,13 +26,17 @@ const getEnvVar = (name, fallback = '') => {
 let SUPABASE_URL = '';
 let SUPABASE_ANON_KEY = '';
 
-// 환경변수 또는 전역 설정에서 Supabase 설정 로드
+// 환경변수 또는 전역 설정에서 Supabase 설정 로드 (우선순위 처리)
+// 1. window.SUPABASE_CONFIG 확인 (임시 방식)
 if (window.SUPABASE_CONFIG) {
     SUPABASE_URL = window.SUPABASE_CONFIG.url;
     SUPABASE_ANON_KEY = window.SUPABASE_CONFIG.anonKey;
-} else {
-    SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', '');
-    SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY', '');
+} 
+// 2. Vercel 환경변수 확인
+else {
+    // Vercel에 설정된 값 (Vercel에서 배포된 경우 사용)
+    SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', 'https://masylwzkikmbwlvfeucz.supabase.co');
+    SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hc3lsd3praWttYndsdmZldWN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0NDA3NjAsImV4cCI6MjA2NzAxNjc2MH0.sCFCHGUdwWoXUpZn5TSO1xKYU2D4sXw-davY6AJdEg4');
 }
 
 // Supabase 클라이언트 초기화
@@ -631,13 +649,62 @@ async function handleLogin() {
         
         if (!supabase) {
             showNotification('Supabase가 초기화되지 않았습니다. 데모 모드를 이용해주세요.', 'error');
+            if (elements.googleLoginBtn) {
+                elements.googleLoginBtn.disabled = false;
+                elements.googleLoginBtn.innerHTML = 'Google로 계속하기';
+            }
             return;
         }
+        
+        // 파일 프로토콜에서는 OAuth가 작동하지 않을 수 있음을 알림
+        if (window.location.protocol === 'file:') {
+            const confirmMessage = '파일에서 직접 실행 중입니다. Google 로그인이 제대로 작동하지 않을 수 있습니다.\n\n로컬 서버를 시작하려면:\n1. 터미널에서 "npm run dev" 실행\n2. http://localhost:3000 접속\n\n계속 진행하시겠습니까?';
+            if (!confirm(confirmMessage)) {
+                if (elements.googleLoginBtn) {
+                    elements.googleLoginBtn.disabled = false;
+                    elements.googleLoginBtn.innerHTML = 'Google로 계속하기';
+                }
+                return;
+            }
+        }
+        
+        // 배포 환경 감지
+        const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+        const isLocalFile = window.location.protocol === 'file:';
+        const isLocalhost = window.location.hostname === 'localhost';
+        
+        // 적절한 리디렉션 URL 설정
+        let redirectTo;
+        if (isVercel) {
+            // Vercel 배포 환경
+            redirectTo = window.location.origin;
+        } else if (isLocalhost) {
+            // 로컬 개발 서버
+            redirectTo = 'http://localhost:3000';
+        } else if (isLocalFile) {
+            // 파일 프로토콜 (로컬에서 파일로 열었을 때)
+            redirectTo = 'http://localhost:3000';
+        } else {
+            // 기타 환경 (커스텀 도메인 등)
+            redirectTo = window.location.origin;
+        }
+            
+        console.log('OAuth 로그인 시도:', { 
+            redirectTo, 
+            isVercel, 
+            isLocalhost, 
+            isLocalFile,
+            origin: window.location.origin
+        });
         
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin
+                redirectTo: redirectTo,
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'consent',
+                }
             }
         });
         

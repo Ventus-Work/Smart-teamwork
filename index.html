@@ -6,8 +6,18 @@
     <title>Smart Teamwork - 협업 할 일 관리</title>
     <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 환경 설정 파일 로드 -->
-    <script src="./env.js"></script>
+    <!-- 환경 설정 파일은 개발 환경에서만 로드 (Vercel에서는 환경변수 사용) -->
+    <script>
+        // 개발 환경에서만 env.js 로드
+        if (window.location.hostname === 'localhost' || window.location.protocol === 'file:') {
+            const script = document.createElement('script');
+            script.src = './env.js';
+            script.onerror = () => {
+                console.warn('env.js 파일을 찾을 수 없습니다. 데모 모드 또는 환경변수를 사용합니다.');
+            };
+            document.head.appendChild(script);
+        }
+    </script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
