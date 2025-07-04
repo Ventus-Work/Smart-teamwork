@@ -249,6 +249,86 @@ function setupEventListeners() {
     
     // 캘린더 초기화는 initCalendars에서 처리하므로 여기서는 제거
     
+    // 캘린더 아이콘 클릭 이벤트 (이벤트 위임 방식)
+    document.addEventListener('click', function(e) {
+        console.log('Document click detected on:', e.target.tagName, e.target.className);
+        
+        if (e.target.classList.contains('calendar-icon')) {
+            console.log('Calendar icon clicked via delegation:', e.target.dataset.calendar);
+            e.preventDefault();
+            e.stopPropagation();
+            const calendarType = e.target.dataset.calendar;
+            toggleCalendar(calendarType);
+        }
+    });
+    
+    // 캘린더 토글 함수
+    function toggleCalendar(calendarType) {
+        console.log('Toggling calendar:', calendarType);
+        
+        const startDateCalendar = document.getElementById('startDateCalendar');
+        const dueDateCalendar = document.getElementById('dueDateCalendar');
+        
+        if (!startDateCalendar || !dueDateCalendar) {
+            console.error('Calendar elements not found');
+            return;
+        }
+        
+        if (calendarType === 'start') {
+            // 마감일 캘린더 닫기
+            dueDateCalendar.style.display = 'none';
+            
+            // 시작일 캘린더 토글
+            if (startDateCalendar.style.display === 'block') {
+                startDateCalendar.style.display = 'none';
+            } else {
+                startDateCalendar.style.display = 'block';
+                // 달력 위치 조정
+                const icon = document.querySelector('.calendar-icon[data-calendar="start"]');
+                if (icon) adjustCalendarPosition(startDateCalendar, icon);
+                
+                // 월, 년 선택 옵션 업데이트
+                const startMonthSelect = document.getElementById('startMonthSelect');
+                const startYearSelect = document.getElementById('startYearSelect');
+                if (startMonthSelect && startYearSelect) {
+                    updateMonthYearOptions(startMonthSelect, startYearSelect, calendarState.start.month, calendarState.start.year);
+                }
+                
+                // 날짜 그리드 업데이트
+                const startDateDays = document.getElementById('startDateDays');
+                if (startDateDays) {
+                    updateCalendarDays(startDateDays, calendarState.start.year, calendarState.start.month, calendarState.start.date, 'start');
+                }
+            }
+        } else if (calendarType === 'due') {
+            // 시작일 캘린더 닫기
+            startDateCalendar.style.display = 'none';
+            
+            // 마감일 캘린더 토글
+            if (dueDateCalendar.style.display === 'block') {
+                dueDateCalendar.style.display = 'none';
+            } else {
+                dueDateCalendar.style.display = 'block';
+                // 달력 위치 조정
+                const icon = document.querySelector('.calendar-icon[data-calendar="due"]');
+                if (icon) adjustCalendarPosition(dueDateCalendar, icon);
+                
+                // 월, 년 선택 옵션 업데이트
+                const dueMonthSelect = document.getElementById('dueMonthSelect');
+                const dueYearSelect = document.getElementById('dueYearSelect');
+                if (dueMonthSelect && dueYearSelect) {
+                    updateMonthYearOptions(dueMonthSelect, dueYearSelect, calendarState.due.month, calendarState.due.year);
+                }
+                
+                // 날짜 그리드 업데이트
+                const dueDateDays = document.getElementById('dueDateDays');
+                if (dueDateDays) {
+                    updateCalendarDays(dueDateDays, calendarState.due.year, calendarState.due.month, calendarState.due.date, 'due');
+                }
+            }
+        }
+    }
+    
     // 할 일 상세 모달 액션
     elements.editTaskBtn.addEventListener('click', handleEditTask);
     elements.deleteTaskBtn.addEventListener('click', handleDeleteTask);
@@ -456,7 +536,7 @@ async function handleDemoMode() {
         
         // 달력 초기화
         setTimeout(() => {
-            initCalendars();
+            initializeCalendars();
         }, 500);
         
         // 데모 모드 표시
@@ -529,7 +609,7 @@ async function handleAuthSuccess(session) {
 // 사용자 프로필 확인/생성
 async function ensureUserProfile() {
     const { data: profile, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('id', currentUser.id)
         .single();
@@ -537,7 +617,7 @@ async function ensureUserProfile() {
     if (error && error.code === 'PGRST116') {
         // 프로필이 없으면 생성
         const { error: insertError } = await supabase
-            .from('users')
+            .from('profiles')
             .insert({
                 id: currentUser.id,
                 email: currentUser.email,
@@ -1172,7 +1252,7 @@ function openModal(modalId) {
         // 새 할일 모달이 열릴 때 달력 초기화
         if (modalId === 'newTaskModal') {
             setTimeout(() => {
-                initCalendars();
+                initializeCalendars();
             }, 200);
         }
         
@@ -2464,7 +2544,7 @@ let calendarState = {
 };
 
 // 캘린더 초기화 통합 함수
-function initCalendars() {
+function initializeCalendars() {
     console.log('Initializing calendars...');
     
     // 새 캘린더 시스템 초기화 (monthViewContainer가 존재하면)
@@ -2494,7 +2574,7 @@ function initCalendars() {
     // 요소가 없으면 종료
     if (!startDateInput || !dueDateInput) {
         console.log('Date input elements not found, retrying in 1 second...');
-        setTimeout(initCalendars, 1000);
+        setTimeout(initializeCalendars, 1000);
         return;
     }
     
@@ -2520,54 +2600,7 @@ function initCalendars() {
     const newStartDateInput = document.getElementById('taskStartDateDisplay');
     const newDueDateInput = document.getElementById('taskDueDateDisplay');
     
-    // 달력 아이콘 클릭 이벤트
-    document.querySelectorAll('.calendar-icon').forEach(icon => {
-        icon.addEventListener('click', function(e) {
-            console.log('Calendar icon clicked:', this.dataset.calendar);
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const calendarType = this.dataset.calendar;
-            
-            if (calendarType === 'start') {
-                // 모든 캘린더 닫기
-                if (dueDateCalendar) dueDateCalendar.style.display = 'none';
-                
-                // 시작일 캘린더 토글
-                if (startDateCalendar) {
-                    if (startDateCalendar.style.display === 'block') {
-                        startDateCalendar.style.display = 'none';
-                    } else {
-                        startDateCalendar.style.display = 'block';
-                        // 달력 위치 조정
-                        adjustCalendarPosition(startDateCalendar, this);
-                        // 월, 년 선택 옵션 업데이트
-                        updateMonthYearOptions(startMonthSelect, startYearSelect, calendarState.start.month, calendarState.start.year);
-                        // 날짜 그리드 업데이트
-                        updateCalendarDays(startDateDays, calendarState.start.year, calendarState.start.month, calendarState.start.date, 'start');
-                    }
-                }
-            } else if (calendarType === 'due') {
-                // 모든 캘린더 닫기
-                if (startDateCalendar) startDateCalendar.style.display = 'none';
-                
-                // 마감일 캘린더 토글
-                if (dueDateCalendar) {
-                    if (dueDateCalendar.style.display === 'block') {
-                        dueDateCalendar.style.display = 'none';
-                    } else {
-                        dueDateCalendar.style.display = 'block';
-                        // 달력 위치 조정
-                        adjustCalendarPosition(dueDateCalendar, this);
-                        // 월, 년 선택 옵션 업데이트
-                        updateMonthYearOptions(dueMonthSelect, dueYearSelect, calendarState.due.month, calendarState.due.year);
-                        // 날짜 그리드 업데이트
-                        updateCalendarDays(dueDateDays, calendarState.due.year, calendarState.due.month, calendarState.due.date, 'due');
-                    }
-                }
-            }
-        });
-    });
+    // 캘린더 아이콘 클릭 이벤트 리스너 제거 (이미 전역에서 이벤트 위임으로 처리됨)
     
     // 날짜 입력 필드 클릭 이벤트 (달력 아이콘과 동일한 동작)
     newStartDateInput.addEventListener('click', function(e) {
@@ -2695,6 +2728,11 @@ function initCalendars() {
         updateMonthYearOptions(dueMonthSelect, dueYearSelect, currentMonth, currentYear);
         updateCalendarDays(dueDateDays, currentYear, currentMonth, null, 'due');
     }
+    
+    // 달력 요소들이 실제로 존재하는지 확인
+    console.log('Start calendar element:', startDateCalendar);
+    console.log('Due calendar element:', dueDateCalendar);
+    console.log('Calendar icons found:', document.querySelectorAll('.calendar-icon').length);
     
     console.log('Calendar initialization completed');
 }
@@ -2839,7 +2877,7 @@ const formatDateYMD = formatDate;
 document.addEventListener('DOMContentLoaded', function() {
     // 다른 DOMContentLoaded 이벤트 핸들러가 있을 수 있으므로 기존 코드 덮어쓰지 않도록 함
     setTimeout(() => {
-        initCalendars(); // 통합된 캘린더 초기화 함수 호출
+        initializeCalendars(); // 통합된 캘린더 초기화 함수 호출
     }, 100);
 });// 달력 위치 조정 함수
 function adjustCalendarPosition(calendar, triggerElement) {
