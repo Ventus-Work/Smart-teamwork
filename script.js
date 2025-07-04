@@ -430,15 +430,32 @@ async function handleLogin() {
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin
+                redirectTo: `${window.location.origin}/`,
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'consent',
+                }
             }
         });
         
-        if (error) throw error;
+        if (error) {
+            console.error('OAuth 오류:', error);
+            throw error;
+        }
+        
+        console.log('OAuth 인증 시작됨');
         
     } catch (error) {
         console.error('로그인 오류:', error);
-        showNotification('로그인 중 오류가 발생했습니다.', 'error');
+        let errorMessage = '로그인 중 오류가 발생했습니다.';
+        
+        if (error.message.includes('Invalid login')) {
+            errorMessage = 'Supabase 프로젝트 설정을 확인해주세요.';
+        } else if (error.message.includes('redirect_uri')) {
+            errorMessage = 'OAuth Redirect URI 설정을 확인해주세요.';
+        }
+        
+        showNotification(errorMessage, 'error');
         elements.loginBtn.disabled = false;
         elements.loginBtn.innerHTML = '<img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" class="w-5 h-5 mr-3"><span class="font-medium text-gray-700">Google로 로그인</span>';
     }
@@ -2540,12 +2557,6 @@ function initializeCalendars() {
     
     // HTML5 date input은 별도 초기화가 필요하지 않으므로 함수 완료
 
-    
-    // 달력 요소들이 실제로 존재하는지 확인
-    console.log('Start calendar element:', startDateCalendar);
-    console.log('Due calendar element:', dueDateCalendar);
-    console.log('Calendar icons found:', document.querySelectorAll('.calendar-icon').length);
-    
     console.log('Calendar initialization completed');
 }
 
