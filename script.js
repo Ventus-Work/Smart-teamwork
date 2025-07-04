@@ -8,16 +8,25 @@ const getEnvVar = (name, fallback = '') => {
     return fallback;
 };
 
-// Supabase 설정 (환경변수에서 로드)
-const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', '');
-const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY', '');
+// Supabase 설정 (환경변수 또는 전역 설정에서 로드)
+let SUPABASE_URL = '';
+let SUPABASE_ANON_KEY = '';
+
+// 환경변수 또는 전역 설정에서 Supabase 설정 로드
+if (window.SUPABASE_CONFIG) {
+    SUPABASE_URL = window.SUPABASE_CONFIG.url;
+    SUPABASE_ANON_KEY = window.SUPABASE_CONFIG.anonKey;
+} else {
+    SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', '');
+    SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY', '');
+}
 
 // Supabase 클라이언트 초기화
 let supabase = null;
 try {
     if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('Supabase 클라이언트 초기화 완료');
+        console.log('Supabase 클라이언트 초기화 완료:', SUPABASE_URL);
     } else {
         console.warn('Supabase 환경변수가 설정되지 않았습니다. 데모 모드로 실행됩니다.');
     }
@@ -707,6 +716,180 @@ async function handleDemoMode() {
     }
 }
 
+// 인증 상태 확인
+async function checkAuthState() {
+    try {
+        if (!supabase) {
+            console.log('Supabase가 초기화되지 않음 - 로그인 화면 표시');
+            showLoginScreen();
+            return;
+        }
+
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (error) {
+            console.error('인증 상태 확인 실패:', error);
+            showLoginScreen();
+            return;
+        }
+
+        if (user) {
+            console.log('로그인된 사용자 발견:', user.email);
+            currentUser = user;
+            await initializeUserData();
+            showMainApp();
+            switchView('dashboard');
+        } else {
+            console.log('로그인되지 않은 상태');
+            showLoginScreen();
+        }
+    } catch (error) {
+        console.error('인증 상태 확인 중 오류:', error);
+        showLoginScreen();
+    }
+}
+
+// 사용자 데이터 초기화
+async function initializeUserData() {
+    try {
+        // 프로필 정보 가져오기 또는 생성
+        await ensureUserProfile();
+        
+        // 워크스페이스 가져오기 또는 생성
+        await ensureUserWorkspace();
+        
+        // 프로젝트 및 할일 데이터 로드
+        await loadUserData();
+        
+        // 사용자 정보 UI 업데이트
+        updateUserInfo();
+        
+        console.log('사용자 데이터 초기화 완료');
+    } catch (error) {
+        console.error('사용자 데이터 초기화 실패:', error);
+        showNotification('데이터 로드에 실패했습니다.', 'error');
+    }
+}
+
+// 사용자 프로필 확인/생성
+async function ensureUserProfile() {
+    const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+
+    if (error && error.code !== 'PGRST116') {
+        throw error;
+    }
+
+    if (!profile) {
+        // 프로필 생성
+        const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+                id: currentUser.id,
+                full_name: currentUser.user_metadata?.full_name || currentUser.email,
+                avatar_url: currentUser.user_metadata?.avatar_url
+            });
+
+        if (insertError) {
+            throw insertError;
+        }
+    }
+}
+
+// 사용자 워크스페이스 확인/생성
+async function ensureUserWorkspace() {
+    // 사용자가 속한 워크스페이스 찾기
+    const { data: memberships, error: memberError } = await supabase
+        .from('workspace_members')
+        .select('workspace_id, workspaces(*)')
+        .eq('user_id', currentUser.id);
+
+    if (memberError) {
+        throw memberError;
+    }
+
+    if (memberships && memberships.length > 0) {
+        currentWorkspace = memberships[0].workspaces;
+    } else {
+        // 새 워크스페이스 생성
+        const { data: workspace, error: wsError } = await supabase
+            .from('workspaces')
+            .insert({
+                name: `${currentUser.user_metadata?.full_name || currentUser.email}의 워크스페이스`,
+                description: '개인 작업 공간',
+                created_by: currentUser.id
+            })
+            .select()
+            .single();
+
+        if (wsError) {
+            throw wsError;
+        }
+
+        // 워크스페이스 멤버로 추가
+        const { error: memberInsertError } = await supabase
+            .from('workspace_members')
+            .insert({
+                workspace_id: workspace.id,
+                user_id: currentUser.id,
+                role: 'owner'
+            });
+
+        if (memberInsertError) {
+            throw memberInsertError;
+        }
+
+        currentWorkspace = workspace;
+    }
+}
+
+// 사용자 데이터 로드
+async function loadUserData() {
+    if (!currentWorkspace) return;
+
+    // 프로젝트 로드
+    const { data: projects, error: projectError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('workspace_id', currentWorkspace.id)
+        .order('created_at', { ascending: false });
+
+    if (projectError) {
+        throw projectError;
+    }
+
+    currentProjects = projects || [];
+
+    // 할일 로드
+    const { data: todos, error: todoError } = await supabase
+        .from('todos')
+        .select('*')
+        .eq('workspace_id', currentWorkspace.id)
+        .order('created_at', { ascending: false });
+
+    if (todoError) {
+        throw todoError;
+    }
+
+    currentTasks = todos || [];
+
+    // 댓글 로드
+    const { data: comments, error: commentError } = await supabase
+        .from('comments')
+        .select('*')
+        .in('todo_id', currentTasks.map(t => t.id))
+        .order('created_at', { ascending: true });
+
+    if (commentError) {
+        throw commentError;
+    }
+
+    currentComments = comments || [];
+}
+
 // 로그아웃 처리
 async function handleLogout() {
     try {
@@ -840,9 +1023,9 @@ async function handleNewTask(e) {
             // 데모 모드에서 로컬 스토리지에 저장
             currentTasks.push(newTask);
             localStorage.setItem('demo_tasks', JSON.stringify(currentTasks));
-        } else if (supabase) {
+        } else if (supabase && currentWorkspace) {
             // Supabase에 저장
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('todos')
                 .insert([{
                     title: taskTitle.trim(),
@@ -852,14 +1035,17 @@ async function handleNewTask(e) {
                     priority: taskPriority,
                     start_date: taskStartDate || null,
                     due_date: taskDueDate || null,
-                    assignee: currentUser?.user_metadata?.full_name || '사용자',
-                    created_by: currentUser?.id || null
-                }]);
+                    workspace_id: currentWorkspace.id,
+                    created_by: currentUser?.id,
+                    assigned_to: currentUser?.id
+                }])
+                .select()
+                .single();
                 
             if (error) throw error;
             
-            // 로컬 배열에도 추가
-            currentTasks.push(newTask);
+            // 로컬 배열에 실제 데이터 추가
+            currentTasks.push(data);
         }
         
         // UI 업데이트
@@ -925,26 +1111,24 @@ async function handleNewProject(e) {
             // 데모 모드에서 로컬 스토리지에 저장
             currentProjects.push(newProject);
             localStorage.setItem('demo_projects', JSON.stringify(currentProjects));
-        } else if (supabase) {
+        } else if (supabase && currentWorkspace) {
             // Supabase에 저장
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('projects')
                 .insert([{
                     name: projectName,
                     description: projectDescription || '',
                     color: projectColor,
-                    status: 'planning',
-                    progress: 0,
-                    start_date: projectStartDate || null,
-                    due_date: projectDueDate || null,
-                    workspace_id: currentWorkspace?.id || null,
-                    created_by: currentUser?.id || null
-                }]);
+                    workspace_id: currentWorkspace.id,
+                    created_by: currentUser.id
+                }])
+                .select()
+                .single();
                 
             if (error) throw error;
             
-            // 로컬 배열에도 추가
-            currentProjects.push(newProject);
+            // 로컬 배열에 실제 데이터 추가
+            currentProjects.push(data);
         }
         
         // UI 업데이트
@@ -2283,10 +2467,10 @@ document.addEventListener('DOMContentLoaded', function() {
         showLoading();
         setupEventListeners();
         
-        // 로그인 화면 표시 (로딩 애니메이션 효과)
+        // 인증 상태 확인 후 적절한 화면 표시
         setTimeout(() => {
             hideLoading();
-            showLoginScreen();
+            checkAuthState();
             
             // 데모 버튼 클릭 이벤트 재확인
             const demoBtn = document.getElementById('demoBtn');

@@ -6,16 +6,8 @@
     <title>Smart Teamwork - 협업 할 일 관리</title>
     <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 개발 환경에서만 로드 -->
-    <script>
-        // 프로덕션 환경이 아닌 경우에만 env.js 로드
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            const script = document.createElement('script');
-            script.src = './env.js';
-            script.onerror = () => console.warn('env.js not found - using fallback values');
-            document.head.appendChild(script);
-        }
-    </script>
+    <!-- 환경 설정 파일 로드 -->
+    <script src="./env.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
