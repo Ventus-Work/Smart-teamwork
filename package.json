@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npx serve . -l 3000",
     "start": "npx serve . -l 3000",
-    "build": "shx mkdir -p public && shx cp -r *.html *.css *.js images public",
+    "build": "shx mkdir -p public && shx cp -r *.html *.css *.js public",
     "preview": "npx serve . -l 4173"
   },
   "keywords": [
