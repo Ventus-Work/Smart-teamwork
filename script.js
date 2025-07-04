@@ -2498,77 +2498,20 @@ function initializeCalendars() {
     // 할 일 입력 폼용 캘린더 초기화
     
     // 시작일 캘린더
-    const startDateInput = document.getElementById('taskStartDateDisplay');
-    const startDateCalendar = document.getElementById('startDateCalendar');
-    const startMonthSelect = document.getElementById('startMonthSelect');
-    const startYearSelect = document.getElementById('startYearSelect');
-    const startDateDays = document.getElementById('startDateDays');
-    
-    // 마감일 캘린더
-    const dueDateInput = document.getElementById('taskDueDateDisplay');
-    const dueDateCalendar = document.getElementById('dueDateCalendar');
-    const dueMonthSelect = document.getElementById('dueMonthSelect');
-    const dueYearSelect = document.getElementById('dueYearSelect');
-    const dueDateDays = document.getElementById('dueDateDays');
+    const startDateInput = document.getElementById('taskStartDate');
+    const dueDateInput = document.getElementById('taskDueDate');
     
     console.log('Start date input:', startDateInput);
     console.log('Due date input:', dueDateInput);
     
-    // 요소가 없으면 종료
+    // 요소가 없으면 조용히 종료 (재시도하지 않음)
     if (!startDateInput || !dueDateInput) {
-        console.log('Date input elements not found, retrying in 1 second...');
-        setTimeout(initializeCalendars, 1000);
         return;
     }
     
-    // 현재 날짜 정보
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
+    console.log('Date input elements found successfully');
     
-    // 캘린더 상태 초기화
-    calendarState.start.month = currentMonth;
-    calendarState.start.year = currentYear;
-    calendarState.due.month = currentMonth;
-    calendarState.due.year = currentYear;
-    
-    // 기존 이벤트 리스너 제거
-    const startInputClone = startDateInput.cloneNode(true);
-    startDateInput.parentNode.replaceChild(startInputClone, startDateInput);
-    
-    const dueDateInputClone = dueDateInput.cloneNode(true);
-    dueDateInput.parentNode.replaceChild(dueDateInputClone, dueDateInput);
-    
-    // 새로운 참조 획득
-    const newStartDateInput = document.getElementById('taskStartDateDisplay');
-    const newDueDateInput = document.getElementById('taskDueDateDisplay');
-    
-    // 캘린더 아이콘 클릭 이벤트 리스너 제거 (이미 전역에서 이벤트 위임으로 처리됨)
-    
-    // 날짜 입력 필드 클릭 이벤트 (달력 아이콘과 동일한 동작)
-    newStartDateInput.addEventListener('click', function(e) {
-        console.log('Start date input clicked');
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // 시작일 달력 아이콘 클릭과 동일한 동작
-        const startIcon = document.querySelector('.calendar-icon[data-calendar="start"]');
-        if (startIcon) {
-            startIcon.click();
-        }
-    });
-    
-    newDueDateInput.addEventListener('click', function(e) {
-        console.log('Due date input clicked');
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // 마감일 달력 아이콘 클릭과 동일한 동작
-        const dueIcon = document.querySelector('.calendar-icon[data-calendar="due"]');
-        if (dueIcon) {
-            dueIcon.click();
-        }
-    });
+    // HTML5 date input은 별도 초기화가 필요하지 않으므로 함수 완료
     
     // 월 선택 변경 이벤트
     if (startMonthSelect) {
