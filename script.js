@@ -2057,13 +2057,26 @@ function enableTaskEditMode(task) {
         editBtn.style.backgroundColor = 'var(--success-500)';
         editBtn.style.color = 'white';
         
-        // 새로운 이벤트 리스너 추가
-        editBtn.addEventListener('click', function(e) {
+        // 기존 이벤트 리스너 제거 후 새로운 리스너 추가
+        editBtn.onclick = null;
+        editBtn.removeEventListener('click', editBtn._saveHandler);
+        
+        // 새로운 저장 핸들러 생성
+        editBtn._saveHandler = function(e) {
             e.preventDefault();
             e.stopPropagation();
+            
+            // 중복 클릭 방지
+            if (editBtn.disabled) return;
+            editBtn.disabled = true;
+            
             console.log('저장 버튼 클릭됨');
-            saveTaskEdit(task);
-        });
+            saveTaskEdit(task).finally(() => {
+                editBtn.disabled = false;
+            });
+        };
+        
+        editBtn.addEventListener('click', editBtn._saveHandler);
     } else {
         console.error('편집 버튼을 찾을 수 없습니다.');
     }
@@ -2539,18 +2552,31 @@ function populateTaskDetailModal(task) {
     
     if (addCommentBtn) {
         addCommentBtn.onclick = null;
-        addCommentBtn.addEventListener('click', function(e) {
+        addCommentBtn.removeEventListener('click', addCommentBtn._commentHandler);
+        
+        // 새로운 댓글 추가 핸들러 생성
+        addCommentBtn._commentHandler = function(e) {
             e.preventDefault();
             e.stopPropagation();
+            
+            // 중복 클릭 방지
+            if (addCommentBtn.disabled) return;
+            addCommentBtn.disabled = true;
+            
             console.log('댓글 추가 버튼 클릭됨');
             
             try {
-                handleAddComment();
+                handleAddComment().finally(() => {
+                    addCommentBtn.disabled = false;
+                });
             } catch (error) {
                 console.error('댓글 추가 처리 중 오류:', error);
                 showNotification('댓글 추가 중 오류가 발생했습니다.', 'error');
+                addCommentBtn.disabled = false;
             }
-        });
+        };
+        
+        addCommentBtn.addEventListener('click', addCommentBtn._commentHandler);
     }
     
     if (completeTaskBtn) {
@@ -2784,7 +2810,7 @@ function renderTaskComments(comments) {
 
 
 
-// 댓글 추가 핸들러
+// 댓글 추가 핸들러 (async 함수로 수정)
 async function handleAddComment() {
     if (!currentTaskId) {
         console.error('현재 선택된 태스크가 없습니다.');
