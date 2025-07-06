@@ -63,6 +63,7 @@ let currentView = 'dashboard';
 let currentFilter = 'all';
 let currentProjectFilter = 'all'; // 프로젝트 필터 추가
 let currentTaskId = null;
+let currentEditingProject = null;
 let currentDate = new Date();
 let isDemoMode = false;
 let isModalFullSize = false;
@@ -720,14 +721,18 @@ function setupEventListeners() {
         'closeTaskDetail',
         'closeTaskDetailBtn',
         'cancelNewProject',
-        'cancelNewTask'
+        'cancelNewTask',
+        'closeProjectEditModal',
+        'cancelEditProject'
     ];
     
     closeButtons.forEach(buttonId => {
         const button = document.getElementById(buttonId);
         if (button) {
             button.addEventListener('click', () => {
-                if (buttonId.includes('Project')) {
+                if (buttonId.includes('ProjectEdit') || buttonId.includes('EditProject')) {
+                    closeModal('projectEditModal');
+                } else if (buttonId.includes('Project')) {
                     closeModal('newProjectModal');
                 } else if (buttonId.includes('Task')) {
                     closeModal('newTaskModal');
@@ -744,6 +749,42 @@ function setupEventListeners() {
     }
     if (elements.newProjectForm) {
         elements.newProjectForm.addEventListener('submit', handleNewProject);
+    }
+    
+    // 프로젝트 편집 폼
+    const editProjectForm = document.getElementById('editProjectForm');
+    if (editProjectForm) {
+        editProjectForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            saveProjectEdit();
+        });
+    }
+    
+    // 프로젝트 삭제 버튼
+    const deleteProjectBtn = document.getElementById('deleteProjectBtn');
+    if (deleteProjectBtn) {
+        deleteProjectBtn.addEventListener('click', () => {
+            if (currentEditingProject) {
+                deleteProject(currentEditingProject.id);
+            }
+        });
+    }
+    
+    // 프로젝트 편집 색상 선택기
+    const editColorPicker = document.getElementById('editColorPicker');
+    if (editColorPicker) {
+        editColorPicker.addEventListener('click', (e) => {
+            if (e.target.classList.contains('color-option')) {
+                // 기존 선택 제거
+                editColorPicker.querySelectorAll('.color-option').forEach(option => {
+                    option.classList.remove('selected');
+                });
+                
+                // 새 선택 추가
+                e.target.classList.add('selected');
+                document.getElementById('editProjectColor').value = e.target.dataset.color;
+            }
+        });
     }
     
     // 태스크 아이템 클릭 - 메인 대시보드의 할 일 목록에서 클릭
@@ -2907,9 +2948,166 @@ function openNewTaskModal(projectId) {
     }, 100);
 }
 
-// 프로젝트 편집 (추후 구현)
+// 프로젝트 편집
 function editProject(projectId) {
-    showNotification('프로젝트 편집 기능은 준비 중입니다.', 'info');
+    const project = currentProjects.find(p => p.id === projectId);
+    if (!project) {
+        showNotification('프로젝트를 찾을 수 없습니다.', 'error');
+        return;
+    }
+    
+    // 현재 편집 중인 프로젝트 저장
+    currentEditingProject = project;
+    
+    // 폼에 데이터 채우기
+    document.getElementById('editProjectName').value = project.name || '';
+    document.getElementById('editProjectDescription').value = project.description || '';
+    document.getElementById('editProjectColor').value = project.color || '#3B82F6';
+    
+    // 색상 선택기 업데이트
+    const colorPicker = document.getElementById('editColorPicker');
+    if (colorPicker) {
+        const colorOptions = colorPicker.querySelectorAll('.color-option');
+        colorOptions.forEach(option => {
+            option.classList.remove('selected');
+            if (option.dataset.color === project.color) {
+                option.classList.add('selected');
+            }
+        });
+    }
+    
+    // 모달 표시
+    showModal('projectEditModal');
+}
+
+// 프로젝트 삭제
+async function deleteProject(projectId) {
+    const project = currentProjects.find(p => p.id === projectId);
+    if (!project) {
+        showNotification('프로젝트를 찾을 수 없습니다.', 'error');
+        return;
+    }
+    
+    // 확인 메시지
+    if (!confirm(`'${project.name}' 프로젝트를 삭제하시겠습니까?\n이 프로젝트의 모든 할 일도 함께 삭제됩니다.`)) {
+        return;
+    }
+    
+    try {
+        if (isDemoMode) {
+            // 데모 모드에서 로컬 삭제
+            currentProjects = currentProjects.filter(p => p.id !== projectId);
+            currentTasks = currentTasks.filter(t => t.project_id !== projectId);
+            localStorage.setItem('demo_projects', JSON.stringify(currentProjects));
+            localStorage.setItem('demo_tasks', JSON.stringify(currentTasks));
+        } else if (supabase) {
+            // 먼저 관련된 할 일들 삭제
+            const { error: tasksError } = await supabase
+                .from('todos')
+                .delete()
+                .eq('project_id', projectId);
+                
+            if (tasksError) {
+                console.error('프로젝트 할 일 삭제 오류:', tasksError);
+                throw tasksError;
+            }
+            
+            // 프로젝트 삭제
+            const { error: projectError } = await supabase
+                .from('projects')
+                .delete()
+                .eq('id', projectId);
+                
+            if (projectError) {
+                console.error('프로젝트 삭제 오류:', projectError);
+                throw projectError;
+            }
+            
+            // 로컬 데이터 업데이트
+            currentProjects = currentProjects.filter(p => p.id !== projectId);
+            currentTasks = currentTasks.filter(t => t.project_id !== projectId);
+        }
+        
+        // UI 업데이트
+        updateProjectsView();
+        updateDashboard();
+        renderCalendar();
+        
+        // 모달 닫기
+        closeModal('projectEditModal');
+        
+        showNotification(`'${project.name}' 프로젝트가 삭제되었습니다.`, 'success');
+        
+    } catch (error) {
+        console.error('프로젝트 삭제 실패:', error);
+        showNotification('프로젝트 삭제에 실패했습니다.', 'error');
+    }
+}
+
+// 프로젝트 편집 저장
+async function saveProjectEdit() {
+    if (!currentEditingProject) {
+        showNotification('편집할 프로젝트가 선택되지 않았습니다.', 'error');
+        return;
+    }
+    
+    const name = document.getElementById('editProjectName').value.trim();
+    const description = document.getElementById('editProjectDescription').value.trim();
+    const color = document.getElementById('editProjectColor').value;
+    
+    if (!name) {
+        showNotification('프로젝트 이름을 입력해주세요.', 'warning');
+        return;
+    }
+    
+    try {
+        const updateData = {
+            name,
+            description,
+            color,
+            updated_at: new Date().toISOString()
+        };
+        
+        if (isDemoMode) {
+            // 데모 모드에서 로컬 업데이트
+            const projectIndex = currentProjects.findIndex(p => p.id === currentEditingProject.id);
+            if (projectIndex !== -1) {
+                Object.assign(currentProjects[projectIndex], updateData);
+                localStorage.setItem('demo_projects', JSON.stringify(currentProjects));
+            }
+        } else if (supabase) {
+            // Supabase에 업데이트
+            const { error } = await supabase
+                .from('projects')
+                .update(updateData)
+                .eq('id', currentEditingProject.id);
+                
+            if (error) {
+                console.error('프로젝트 업데이트 오류:', error);
+                throw error;
+            }
+            
+            // 로컬 데이터 업데이트
+            const projectIndex = currentProjects.findIndex(p => p.id === currentEditingProject.id);
+            if (projectIndex !== -1) {
+                Object.assign(currentProjects[projectIndex], updateData);
+            }
+        }
+        
+        // UI 업데이트
+        updateProjectsView();
+        updateDashboard();
+        
+        // 모달 닫기
+        closeModal('projectEditModal');
+        currentEditingProject = null;
+        
+        showNotification('프로젝트가 성공적으로 수정되었습니다.', 'success');
+        
+    } catch (error) {
+        console.error('프로젝트 수정 실패:', error);
+        showNotification('프로젝트 수정에 실패했습니다.', 'error');
+    }
 }
 
 // 캘린더 뷰 변경
@@ -2957,51 +3155,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
             }
             
-            // 바로 데모 모드 시작
-            handleDemoMode();
-            
-            // UI/UX 디자인 시안 작성 할 일 찾아서 클릭
-            setTimeout(() => {
-                // 모든 할 일 항목 가져오기
-                const allTasks = document.querySelectorAll('.task-item');
-                console.log('전체 할일 항목 수:', allTasks.length);
-                
-                // UI/UX 디자인 시안 작성 항목 찾기
-                let uiuxTask = null;
-                allTasks.forEach(task => {
-                    const titleElement = task.querySelector('h3');
-                    if (titleElement && titleElement.textContent.includes('UI/UX 디자인 시안')) {
-                        uiuxTask = task;
-                        console.log('UI/UX 디자인 시안 작업 찾음:', titleElement.textContent);
-                    }
-                });
-                
-                // 찾은 항목 클릭
-                if (uiuxTask) {
-                    console.log('UI/UX 디자인 시안 작업 클릭 시도...');
-                    uiuxTask.click();
-                    
-                    // 모달이 열린 후 댓글 입력 및 추가
-                    setTimeout(() => {
-                        const commentTextarea = document.querySelector('#newComment');
-                        if (commentTextarea) {
-                            console.log('댓글 입력 필드 찾음, 내용 입력 중...');
-                            commentTextarea.value = '테스트 댓글입니다. 댓글 기능이 정상 작동하는지 확인해보겠습니다.';
-                            const addCommentBtn = document.querySelector('#addComment');
-                            if (addCommentBtn) {
-                                console.log('댓글 추가 버튼 클릭 시도...');
-                                addCommentBtn.click();
-                            } else {
-                                console.error('댓글 추가 버튼을 찾을 수 없습니다.');
-                            }
-                        } else {
-                            console.error('댓글 입력 필드를 찾을 수 없습니다.');
-                        }
-                    }, 2000);
-                } else {
-                    console.error('UI/UX 디자인 시안 작업을 찾을 수 없습니다.');
-                }
-            }, 3000);
+
         }, 800);
         
     } catch (error) {
