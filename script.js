@@ -2076,6 +2076,11 @@ function enableTaskEditMode(task) {
             });
         };
         
+        // 기존 이벤트 리스너가 있을 경우 제거 후 새로 추가
+        if (editBtn._oldClickListener) {
+            editBtn.removeEventListener('click', editBtn._oldClickListener);
+        }
+        editBtn._oldClickListener = editBtn._saveHandler;
         editBtn.addEventListener('click', editBtn._saveHandler);
     } else {
         console.error('편집 버튼을 찾을 수 없습니다.');
@@ -2298,8 +2303,18 @@ function disableTaskEditMode() {
         
         // 기존 이벤트 리스너 제거
         editBtn.onclick = null;
-        editBtn.removeEventListener('click', editBtn._saveHandler);
-        editBtn._saveHandler = null;
+        
+        // 저장 핸들러 제거
+        if (editBtn._saveHandler) {
+            editBtn.removeEventListener('click', editBtn._saveHandler);
+            editBtn._saveHandler = null;
+        }
+        
+        // 이전에 저장해둔 리스너도 제거
+        if (editBtn._oldClickListener) {
+            editBtn.removeEventListener('click', editBtn._oldClickListener);
+            editBtn._oldClickListener = null;
+        }
         
         // 새로운 편집 핸들러 설정
         editBtn.onclick = () => handleTaskEdit();
@@ -2559,27 +2574,24 @@ function populateTaskDetailModal(task) {
     
     if (addCommentBtn) {
         addCommentBtn.onclick = null;
-        addCommentBtn.removeEventListener('click', addCommentBtn._commentHandler);
         
-        // 새로운 댓글 추가 핸들러 생성
+        // 기존 이벤트 리스너가 있다면 제거
+        if (addCommentBtn._commentHandler) {
+            addCommentBtn.removeEventListener('click', addCommentBtn._commentHandler);
+        }
+        
+        // 새로운 댓글 추가 핸들러 생성 - 중복 호출 방지 로직은 handleAddComment() 함수 내부로 이동
         addCommentBtn._commentHandler = function(e) {
             e.preventDefault();
             e.stopPropagation();
             
-            // 중복 클릭 방지
-            if (addCommentBtn.disabled) return;
-            addCommentBtn.disabled = true;
-            
             console.log('댓글 추가 버튼 클릭됨');
             
             try {
-                handleAddComment().finally(() => {
-                    addCommentBtn.disabled = false;
-                });
+                handleAddComment();
             } catch (error) {
                 console.error('댓글 추가 처리 중 오류:', error);
                 showNotification('댓글 추가 중 오류가 발생했습니다.', 'error');
-                addCommentBtn.disabled = false;
             }
         };
         
@@ -2818,8 +2830,17 @@ function renderTaskComments(comments) {
 
 
 
+// 댓글 추가 진행 중 플래그
+let isAddingComment = false;
+
 // 댓글 추가 핸들러 (async 함수로 수정)
 async function handleAddComment() {
+    // 중복 호출 방지
+    if (isAddingComment) {
+        console.log('댓글 추가가 이미 진행 중입니다.');
+        return;
+    }
+    
     if (!currentTaskId) {
         console.error('현재 선택된 태스크가 없습니다.');
         return;
@@ -2835,6 +2856,15 @@ async function handleAddComment() {
     if (!content) {
         showNotification('댓글 내용을 입력해주세요.', 'warning');
         return;
+    }
+    
+    // 댓글 추가 진행 중 플래그 설정
+    isAddingComment = true;
+    
+    // 댓글 추가 버튼 비활성화
+    const addCommentBtn = document.getElementById('addComment');
+    if (addCommentBtn) {
+        addCommentBtn.disabled = true;
     }
     
     console.log('댓글 추가 시도:', { taskId: currentTaskId, content, isDemoMode });
@@ -2937,6 +2967,14 @@ async function handleAddComment() {
     } catch (error) {
         console.error('댓글 추가 실패:', error);
         showNotification('댓글 추가에 실패했습니다.', 'error');
+    } finally {
+        // 댓글 추가 진행 중 플래그 해제
+        isAddingComment = false;
+        
+        // 댓글 추가 버튼 활성화
+        if (addCommentBtn) {
+            addCommentBtn.disabled = false;
+        }
     }
 }
 
