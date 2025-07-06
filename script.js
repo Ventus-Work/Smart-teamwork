@@ -156,9 +156,10 @@ function updateDashboard() {
 function updateDashboardStats() {
     try {
         const totalTasks = currentTasks.length;
-        const pendingTasks = currentTasks.filter(t => t.status === 'todo').length;
-        const inProgressTasks = currentTasks.filter(t => t.status === 'doing').length;
-        const completedTasks = currentTasks.filter(t => t.status === 'done').length;
+        // 데이터베이스 status 값에 맞춰 조정
+        const pendingTasks = currentTasks.filter(t => t.status === 'todo' || t.status === 'pending').length;
+        const inProgressTasks = currentTasks.filter(t => t.status === 'doing' || t.status === 'in_progress').length;
+        const completedTasks = currentTasks.filter(t => t.status === 'done' || t.status === 'completed').length;
         const totalProjects = currentProjects.length;
         
         // 통계 카드 업데이트
@@ -187,7 +188,7 @@ function updateRecentTasksList() {
         
         // 최근 5개 할일 가져오기 (진행중과 대기 상태 우선)
         const recentTasks = currentTasks
-            .filter(task => task.status !== 'done')
+            .filter(task => task.status !== 'done' && task.status !== 'completed')
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
             .slice(0, 5);
         
@@ -220,10 +221,10 @@ function updateRecentTasksList() {
                     taskElement.setAttribute('data-task-id', task.id);
                     taskElement.style.cssText = 'cursor: pointer; padding: var(--space-4); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); margin-bottom: var(--space-3); transition: all 0.2s ease;';
                     
-                    const statusIcon = task.status === 'doing' ? 
+                    const statusIcon = (task.status === 'doing' || task.status === 'in_progress') ? 
                         `<div style="width: 0.5rem; height: 0.5rem; background-color: var(--warning-500); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div>` : '';
                     
-                    const statusColor = task.status === 'doing' ? 'var(--warning-500)' : 'var(--neutral-300)';
+                    const statusColor = (task.status === 'doing' || task.status === 'in_progress') ? 'var(--warning-500)' : 'var(--neutral-300)';
                     
                     taskElement.innerHTML = `
                         <div style="display: flex; align-items: center; gap: var(--space-3);">
@@ -1086,6 +1087,20 @@ async function loadUserData() {
     }
 
     currentComments = comments || [];
+    
+    console.log('사용자 데이터 로드 완료:', {
+        projects: currentProjects.length,
+        tasks: currentTasks.length,
+        comments: currentComments.length
+    });
+    
+    // 데이터 로드 후 UI 업데이트
+    updateDashboard();
+    updateProjectsView();
+    renderCalendar();
+    
+    // 이벤트 리스너 재설정 (데이터 로드 후 필요)
+    setupEventListeners();
 }
 
 // 로그아웃 처리
@@ -2294,10 +2309,14 @@ function populateTaskDetailModal(task) {
         existingCancelBtn.remove();
     }
 
-    // 버튼 이벤트 리스너 재설정
+    // 버튼 이벤트 리스너 재설정 (기존 이벤트 리스너 제거 후 새로 추가)
     if (editTaskHeaderBtn) {
         console.log('편집 버튼 이벤트 설정');
-        // 버튼 스타일 초기화 (이전 편집 모드에서 변경된 스타일이 있을 수 있음)
+        // 기존 이벤트 리스너 제거
+        editTaskHeaderBtn.onclick = null;
+        editTaskHeaderBtn.removeEventListener('click', handleTaskEdit);
+        
+        // 버튼 스타일 초기화
         editTaskHeaderBtn.style.backgroundColor = '';
         editTaskHeaderBtn.style.color = '';
         editTaskHeaderBtn.title = '작업 편집';
@@ -2306,48 +2325,125 @@ function populateTaskDetailModal(task) {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
             </svg>
         `;
-        editTaskHeaderBtn.onclick = function() {
-            console.log('편집 버튼 클릭됨');
-            handleTaskEdit();
-        };
+        
+        // 새 이벤트 리스너 추가
+        editTaskHeaderBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('편집 버튼 클릭됨, currentTaskId:', currentTaskId);
+            
+            if (!currentTaskId) {
+                showNotification('편집할 작업이 선택되지 않았습니다.', 'warning');
+                return;
+            }
+            
+            try {
+                handleTaskEdit();
+            } catch (error) {
+                console.error('작업 편집 처리 중 오류:', error);
+                showNotification('작업 편집 중 오류가 발생했습니다.', 'error');
+            }
+        });
     } else {
         console.warn('편집 버튼을 찾을 수 없습니다. (ID: editTaskHeader)');
     }
     
     if (deleteTaskHeaderBtn) {
-        deleteTaskHeaderBtn.onclick = function() {
-            handleTaskDelete();
-        };
+        deleteTaskHeaderBtn.onclick = null;
+        deleteTaskHeaderBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('삭제 버튼 클릭됨, currentTaskId:', currentTaskId);
+            
+            if (!currentTaskId) {
+                showNotification('삭제할 작업이 선택되지 않았습니다.', 'warning');
+                return;
+            }
+            
+            if (confirm('정말로 이 작업을 삭제하시겠습니까?')) {
+                try {
+                    handleTaskDelete();
+                } catch (error) {
+                    console.error('작업 삭제 처리 중 오류:', error);
+                    showNotification('작업 삭제 중 오류가 발생했습니다.', 'error');
+                }
+            }
+        });
     }
     
     if (completeTaskHeaderBtn) {
-        completeTaskHeaderBtn.onclick = function() {
-            handleTaskComplete();
-        };
+        completeTaskHeaderBtn.onclick = null;
+        completeTaskHeaderBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('완료 버튼 클릭됨, currentTaskId:', currentTaskId);
+            
+            if (!currentTaskId) {
+                showNotification('완료할 작업이 선택되지 않았습니다.', 'warning');
+                return;
+            }
+            
+            try {
+                handleTaskComplete();
+            } catch (error) {
+                console.error('작업 완료 처리 중 오류:', error);
+                showNotification('작업 완료 중 오류가 발생했습니다.', 'error');
+            }
+        });
     }
     
     if (closeTaskDetailBtn) {
-        closeTaskDetailBtn.onclick = function() {
+        closeTaskDetailBtn.onclick = null;
+        closeTaskDetailBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             closeModal('taskDetailModal');
-        };
+        });
     }
     
     if (addCommentBtn) {
-        addCommentBtn.onclick = function() {
-            handleAddComment();
-        };
+        addCommentBtn.onclick = null;
+        addCommentBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('댓글 추가 버튼 클릭됨');
+            
+            try {
+                handleAddComment();
+            } catch (error) {
+                console.error('댓글 추가 처리 중 오류:', error);
+                showNotification('댓글 추가 중 오류가 발생했습니다.', 'error');
+            }
+        });
     }
     
     if (completeTaskBtn) {
-        completeTaskBtn.onclick = function() {
-            handleTaskComplete();
-        };
+        completeTaskBtn.onclick = null;
+        completeTaskBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (!currentTaskId) {
+                showNotification('완료할 작업이 선택되지 않았습니다.', 'warning');
+                return;
+            }
+            
+            try {
+                handleTaskComplete();
+            } catch (error) {
+                console.error('작업 완료 처리 중 오류:', error);
+                showNotification('작업 완료 중 오류가 발생했습니다.', 'error');
+            }
+        });
     }
     
     if (closeTaskDetailBtnFooter) {
-        closeTaskDetailBtnFooter.onclick = function() {
+        closeTaskDetailBtnFooter.onclick = null;
+        closeTaskDetailBtnFooter.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             closeModal('taskDetailModal');
-        };
+        });
     }
 
     // 기본 정보 텍스트 업데이트
@@ -2374,16 +2470,16 @@ function populateTaskDetailModal(task) {
         priorityElement.style.color = priorityColor;
     }
 
-    // 상태
+    // 상태 (데이터베이스와 UI 상태 값 매핑)
     if (statusElement) {
-        const statusText = task.status === 'todo' ? '대기중' : 
-                         task.status === 'in_progress' ? '진행중' : 
-                         task.status === 'completed' ? '완료' : '취소';
+        const statusText = (task.status === 'todo' || task.status === 'pending') ? '대기중' : 
+                         (task.status === 'in_progress' || task.status === 'doing') ? '진행중' : 
+                         (task.status === 'completed' || task.status === 'done') ? '완료' : '취소';
         statusElement.textContent = statusText;
         
-        const statusColor = task.status === 'todo' ? 'var(--neutral-500)' : 
-                          task.status === 'in_progress' ? 'var(--warning-500)' : 
-                          task.status === 'completed' ? 'var(--success-500)' : 'var(--error-500)';
+        const statusColor = (task.status === 'todo' || task.status === 'pending') ? 'var(--neutral-500)' : 
+                          (task.status === 'in_progress' || task.status === 'doing') ? 'var(--warning-500)' : 
+                          (task.status === 'completed' || task.status === 'done') ? 'var(--success-500)' : 'var(--error-500)';
         statusElement.style.backgroundColor = statusColor + '20';
         statusElement.style.color = statusColor;
         statusElement.style.borderColor = statusColor + '50';
