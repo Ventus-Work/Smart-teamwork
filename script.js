@@ -721,7 +721,25 @@ function setupEventListeners() {
     const editTaskHeaderBtn = document.getElementById('editTaskHeader');
     if (editTaskHeaderBtn) {
         console.log('편집 버튼 발견:', editTaskHeaderBtn);
-        editTaskHeaderBtn.onclick = handleTaskEdit; // 새로운 바인딩 방식으로 변경
+        // 이벤트 리스너 제거 후 새로 설정
+        editTaskHeaderBtn.onclick = null;
+        if (editTaskHeaderBtn._saveHandler) {
+            editTaskHeaderBtn.removeEventListener('click', editTaskHeaderBtn._saveHandler);
+            editTaskHeaderBtn._saveHandler = null;
+        }
+        // 기본 상태로 설정 (편집 버튼)
+        editTaskHeaderBtn.innerHTML = `
+            <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+        `;
+        editTaskHeaderBtn.title = '작업 편집';
+        editTaskHeaderBtn.style.backgroundColor = '';
+        editTaskHeaderBtn.style.color = '';
+        
+        // 새로운 이벤트 리스너 설정
+        editTaskHeaderBtn.addEventListener('click', handleTaskEdit);
+        editTaskHeaderBtn.onclick = handleTaskEdit; // 백업용 onclick 설정
     } else {
         console.warn('편집 버튼을 찾을 수 없습니다.');
     }
@@ -1444,8 +1462,100 @@ function updateUserInfo() {
 
 // 알림 표시
 function showNotification(message, type = 'info') {
-    // 간단한 알림 구현
+    // 콘솔에 로깅
     console.log(`[${type.toUpperCase()}] ${message}`);
+    
+    // 시각적 알림 생성
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    
+    // 스타일 설정
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        padding: 12px 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        font-size: 14px;
+        font-weight: 500;
+        max-width: 350px;
+        word-wrap: break-word;
+        animation: slideIn 0.3s ease-out;
+        cursor: pointer;
+    `;
+    
+    // 타입별 색상 설정
+    switch (type) {
+        case 'success':
+            notification.style.backgroundColor = '#10b981';
+            notification.style.color = 'white';
+            break;
+        case 'error':
+            notification.style.backgroundColor = '#ef4444';
+            notification.style.color = 'white';
+            break;
+        case 'warning':
+            notification.style.backgroundColor = '#f59e0b';
+            notification.style.color = 'white';
+            break;
+        default: // info
+            notification.style.backgroundColor = '#3b82f6';
+            notification.style.color = 'white';
+    }
+    
+    notification.textContent = message;
+    
+    // 문서에 추가
+    document.body.appendChild(notification);
+    
+    // 클릭 시 제거
+    notification.addEventListener('click', () => {
+        notification.remove();
+    });
+    
+    // 자동 제거 (3초 후)
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
+        }
+    }, 3000);
+}
+
+// CSS 애니메이션 추가
+if (!document.getElementById('notification-styles')) {
+    const style = document.createElement('style');
+    style.id = 'notification-styles';
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 // 할 일 추가 처리
@@ -2115,7 +2225,13 @@ function openTaskDetail(taskId) {
 }
 
 // 작업 편집 핸들러
-function handleTaskEdit() {
+function handleTaskEdit(e) {
+    // 이벤트가 전달되면 기본 동작 및 버블링 방지
+    if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
     if (!currentTaskId) {
         showNotification('편집할 작업이 선택되지 않았습니다.', 'warning');
         return;
@@ -2268,18 +2384,23 @@ function enableTaskEditMode(task) {
     // 편집 버튼을 저장 버튼으로 변경
     const editBtn = document.getElementById('editTaskHeader');
     if (editBtn) {
-        // 기존 이벤트 리스너 모두 제거
+        // 기존 이벤트 리스너 모두 제거 (중요: 이 부분이 핵심 버그 수정)
+        console.log('기존 이벤트 리스너 제거 시작');
+        
         editBtn.onclick = null;
         editBtn.removeEventListener('click', handleTaskEdit);
         
         // 모든 기존 이벤트 리스너 제거
         if (editBtn._saveHandler) {
             editBtn.removeEventListener('click', editBtn._saveHandler);
+            editBtn._saveHandler = null;
         }
         if (editBtn._oldClickListener) {
             editBtn.removeEventListener('click', editBtn._oldClickListener);
+            editBtn._oldClickListener = null;
         }
         
+        // 완전히 새로운 버튼으로 내용 변경
         editBtn.innerHTML = `
             <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -2289,8 +2410,9 @@ function enableTaskEditMode(task) {
         editBtn.style.backgroundColor = 'var(--success-500)';
         editBtn.style.color = 'white';
         
-        // 새로운 저장 핸들러 생성
-        editBtn._saveHandler = function(e) {
+        // 저장 버튼 클릭 시 실행할 완전히 새로운 함수 생성
+        const saveTaskHandler = async function(e) {
+            console.log('저장 핸들러 실행됨');
             e.preventDefault();
             e.stopPropagation();
             
@@ -2298,17 +2420,150 @@ function enableTaskEditMode(task) {
             if (editBtn.disabled) return;
             editBtn.disabled = true;
             
-            console.log('저장 버튼 클릭됨');
-            saveTaskEdit(task).finally(() => {
+            console.log('저장 버튼 클릭됨, task:', task);
+            
+            try {
+                // DOM에서 직접 편집 필드 값 가져오기
+                const titleInput = document.getElementById('editTaskTitle');
+                const descriptionTextarea = document.getElementById('editTaskDescription');
+                const startDateInput = document.getElementById('editTaskStartDate');
+                const dueDateInput = document.getElementById('editTaskDueDate');
+                const projectSelect = document.getElementById('editTaskProject');
+                
+                console.log('DOM에서 찾은 편집 필드:', {
+                    titleInput: titleInput ? titleInput.value : null,
+                    descriptionTextarea: descriptionTextarea ? descriptionTextarea.value : null,
+                    startDateInput: startDateInput ? startDateInput.value : null,
+                    dueDateInput: dueDateInput ? dueDateInput.value : null,
+                    projectSelect: projectSelect ? projectSelect.value : null
+                });
+                
+                if (!titleInput || !descriptionTextarea) {
+                    console.error('필수 편집 필드를 찾을 수 없음');
+                    showNotification('편집 중인 내용을 찾을 수 없습니다.', 'error');
+                    return;
+                }
+                
+                // 업데이트할 데이터 생성
+                const updatedData = {
+                    title: titleInput.value.trim(),
+                    description: descriptionTextarea.value.trim(),
+                    project_id: projectSelect ? projectSelect.value : task.project_id,
+                    start_date: startDateInput ? startDateInput.value || null : task.start_date,
+                    due_date: dueDateInput ? dueDateInput.value || null : task.due_date,
+                    updated_at: new Date().toISOString()
+                };
+                
+                // 유효성 검사
+                if (!updatedData.title.trim()) {
+                    showNotification('제목을 입력해주세요.', 'warning');
+                    titleInput.focus();
+                    editBtn.disabled = false;
+                    return;
+                }
+                
+                console.log('저장 시작:', {
+                    isDemoMode: isDemoMode,
+                    hasSupabase: !!supabase,
+                    taskId: task.id,
+                    updatedData: updatedData
+                });
+                
+                // 데이터 저장 처리
+                if (isDemoMode) {
+                    console.log('데모 모드에서 작업 저장:', updatedData);
+                    
+                    // 데모 모드 저장 로직
+                    const taskIndex = currentTasks.findIndex(t => t.id === task.id);
+                    if (taskIndex !== -1) {
+                        // 기존 작업 데이터와 병합
+                        const updatedTask = {...currentTasks[taskIndex], ...updatedData};
+                        currentTasks[taskIndex] = updatedTask;
+                        
+                        // 로컬 스토리지에 저장
+                        localStorage.setItem('demo_tasks', JSON.stringify(currentTasks));
+                        console.log('데모 모드: 로컬 스토리지에 저장 완료');
+                        
+                        // 편집 모드 종료
+                        disableTaskEditMode();
+                        
+                        // 태스크 상세 정보 업데이트
+                        populateTaskDetailModal(updatedTask);
+                        
+                        // UI 업데이트
+                        updateRecentTasksList();
+                        updateDashboardStats();
+                        
+                        showNotification('작업이 저장되었습니다.', 'success');
+                    } else {
+                        console.error('데모 모드: 작업을 찾을 수 없음:', task.id);
+                        showNotification('작업을 찾을 수 없습니다.', 'error');
+                    }
+                } else if (supabase) {
+                    console.log('Supabase 모드에서 작업 저장');
+                    // Supabase 저장 로직 (수정된 데이터 직접 전달)
+                    const { error } = await supabase
+                        .from('todos')
+                        .update(updatedData)
+                        .eq('id', task.id);
+                        
+                    if (error) {
+                        console.error('Supabase 작업 저장 오류:', error);
+                        showNotification(`작업 저장 오류: ${error.message}`, 'error');
+                        throw error;
+                    }
+                    
+                    // 로컬 데이터 업데이트
+                    const taskIndex = currentTasks.findIndex(t => t.id === task.id);
+                    if (taskIndex !== -1) {
+                        Object.assign(currentTasks[taskIndex], updatedData);
+                    } else {
+                        console.error('Supabase: 작업을 로컬 목록에서 찾을 수 없음:', task.id);
+                    }
+                    
+                    // 편집 모드 종료
+                    disableTaskEditMode();
+                    
+                    // 태스크 상세 정보 업데이트
+                    const updatedTask = currentTasks.find(t => t.id === task.id);
+                    if (updatedTask) {
+                        populateTaskDetailModal(updatedTask);
+                    }
+                    
+                    // UI 업데이트
+                    updateRecentTasksList();
+                    updateDashboardStats();
+                    
+                    showNotification('작업이 저장되었습니다.', 'success');
+                } else {
+                    console.error('저장 방법을 찾을 수 없음: 데모 모드가 아니고 Supabase도 초기화되지 않음');
+                    showNotification('데이터 저장 방법을 설정할 수 없습니다. 페이지를 새로고침해보세요.', 'error');
+                }
+                
+                console.log('작업 저장 완료');
+            } catch (error) {
+                console.error('작업 저장 중 오류:', error);
+                showNotification('작업 저장 중 오류가 발생했습니다.', 'error');
+            } finally {
                 editBtn.disabled = false;
-            });
+            }
         };
         
-        // 새로운 이벤트 리스너 추가
-        editBtn.addEventListener('click', editBtn._saveHandler);
+        // 모든 기존 이벤트 핸들러 완전히 제거
+        const clone = editBtn.cloneNode(true);
+        editBtn.parentNode.replaceChild(clone, editBtn);
         
-        // 백업용 onclick도 설정
-        editBtn.onclick = editBtn._saveHandler;
+        // 새로운 버튼 참조 얻기
+        const newEditBtn = document.getElementById('editTaskHeader');
+        
+        // 새로운 이벤트 리스너로 저장 함수 지정
+        newEditBtn._saveHandler = saveTaskHandler;
+        
+        // 저장 함수를 이벤트 리스너와 onclick 속성 모두에 할당 (안전장치)
+        newEditBtn.addEventListener('click', saveTaskHandler);
+        newEditBtn.onclick = saveTaskHandler;
+        
+        console.log('저장 버튼 이벤트 리스너 설정 완료');
     } else {
         console.error('편집 버튼을 찾을 수 없습니다.');
     }
@@ -2385,13 +2640,27 @@ async function saveTaskTitle(taskId, newTitle) {
 
 // 작업 편집 저장
 async function saveTaskEdit(task) {
+    console.log('saveTaskEdit 호출됨, task:', task);
+    
     const titleInput = document.getElementById('editTaskTitle');
     const descriptionTextarea = document.getElementById('editTaskDescription');
     const startDateInput = document.getElementById('editTaskStartDate');
     const dueDateInput = document.getElementById('editTaskDueDate');
     const projectSelect = document.getElementById('editTaskProject');
     
+    console.log('편집 필드들:', {
+        titleInput: titleInput,
+        descriptionTextarea: descriptionTextarea,
+        startDateInput: startDateInput,
+        dueDateInput: dueDateInput,
+        projectSelect: projectSelect
+    });
+    
     if (!titleInput || !descriptionTextarea) {
+        console.error('편집 필드를 찾을 수 없음:', {
+            titleInput: !!titleInput,
+            descriptionTextarea: !!descriptionTextarea
+        });
         showNotification('편집 중인 내용을 찾을 수 없습니다.', 'error');
         return;
     }
@@ -2431,9 +2700,15 @@ async function saveTaskEdit(task) {
             console.log('데모 모드에서 작업 저장:', updateData);
             const taskIndex = currentTasks.findIndex(t => t.id === task.id);
             if (taskIndex !== -1) {
+                // 기존 작업 객체의 속성을 업데이트
                 Object.assign(currentTasks[taskIndex], updateData);
+                // 로컬 스토리지에 전체 목록 저장
                 localStorage.setItem('demo_tasks', JSON.stringify(currentTasks));
                 console.log('로컬 스토리지에 저장 완료');
+            } else {
+                console.error('데모 모드: 작업을 찾을 수 없음:', task.id);
+                showNotification('작업을 찾을 수 없습니다.', 'error');
+                return;
             }
         } else if (supabase) {
             console.log('Supabase에 작업 저장:', task.id, updateData);
@@ -2476,7 +2751,13 @@ async function saveTaskEdit(task) {
             const taskIndex = currentTasks.findIndex(t => t.id === task.id);
             if (taskIndex !== -1) {
                 Object.assign(currentTasks[taskIndex], updateData);
+            } else {
+                console.error('Supabase: 작업을 로컬 목록에서 찾을 수 없음:', task.id);
             }
+        } else {
+            console.error('Supabase: 데이터 저장 방법을 찾을 수 없음');
+            showNotification('데이터베이스 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.', 'error');
+            return;
         }
         
         // 편집 모드 종료하고 일반 모드로 복원
@@ -2487,10 +2768,14 @@ async function saveTaskEdit(task) {
         }
         
         // UI 업데이트
+        updateRecentTasksList();
+        updateDashboardStats();
         if (typeof updateDashboard === 'function') {
             updateDashboard();
         }
-        renderCalendar();
+        if (typeof renderCalendar === 'function') {
+            renderCalendar();
+        }
         
         showNotification('작업이 저장되었습니다.', 'success');
         
@@ -2519,6 +2804,7 @@ function disableTaskEditMode() {
     // 편집 버튼 원래대로 복원
     const editBtn = document.getElementById('editTaskHeader');
     if (editBtn) {
+        // 기존 스타일과 내용 리셋
         editBtn.innerHTML = `
             <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -2528,7 +2814,7 @@ function disableTaskEditMode() {
         editBtn.style.backgroundColor = '';
         editBtn.style.color = '';
         
-        // 기존 이벤트 리스너 제거
+        // 모든 이벤트 리스너 제거
         editBtn.onclick = null;
         
         // 저장 핸들러 제거
@@ -2543,8 +2829,18 @@ function disableTaskEditMode() {
             editBtn._oldClickListener = null;
         }
         
-        // 새로운 편집 핸들러 설정
-        editBtn.onclick = () => handleTaskEdit();
+        // 편집 기능으로 새 이벤트 핸들러 설정
+        const newEditHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleTaskEdit();
+        };
+        
+        // 이벤트 리스너와 onclick 속성 모두에 할당
+        editBtn.addEventListener('click', newEditHandler);
+        editBtn.onclick = newEditHandler;
+        
+        console.log('편집 버튼 상태 복원 완료');
     }
 }
 
