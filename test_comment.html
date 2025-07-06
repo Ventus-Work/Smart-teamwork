@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>댓글 테스트</title>
+</head>
+<body>
+    <script>
+        // 페이지 로드 후 자동으로 작업 클릭
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                // 첫 번째 작업 항목 클릭
+                const firstTask = document.querySelector('.recent-tasks .recent-task-item');
+                if (firstTask) {
+                    firstTask.click();
+                    console.log('작업 항목 클릭 완료');
+                } else {
+                    console.log('작업 항목을 찾을 수 없습니다.');
+                }
+            }, 3000);
+        });
+    </script>
+    <iframe src="index.html" width="100%" height="100%" style="border: none;"></iframe>
+</body>
+</html>
