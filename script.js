@@ -2295,6 +2295,13 @@ function disableTaskEditMode() {
         editBtn.title = '작업 편집';
         editBtn.style.backgroundColor = '';
         editBtn.style.color = '';
+        
+        // 기존 이벤트 리스너 제거
+        editBtn.onclick = null;
+        editBtn.removeEventListener('click', editBtn._saveHandler);
+        editBtn._saveHandler = null;
+        
+        // 새로운 편집 핸들러 설정
         editBtn.onclick = () => handleTaskEdit();
     }
 }
@@ -2728,6 +2735,7 @@ async function loadTaskComments(taskId) {
             // 댓글 데이터 가공 (author_name 필드 추가)
             comments = (data || []).map(comment => ({
                 ...comment,
+                author_id: comment.created_by,  // author_id 필드로 통일
                 author_name: comment.created_by === currentUser?.id ? 
                            (currentUser?.user_metadata?.full_name || currentUser?.email || '나') : 
                            '사용자'
@@ -2787,7 +2795,7 @@ function renderTaskComments(comments) {
                     </div>
                 </div>
                 <div style="display: flex; gap: var(--space-2);">
-                    ${comment.author_id === (currentUser?.id || 'demo-user') ? `
+                    ${(comment.author_id || comment.created_by) === (currentUser?.id || 'demo-user') ? `
                         <button class="btn btn-ghost btn-xs" onclick="editComment('${comment.id}')" title="댓글 수정">
                             <svg style="width: 0.875rem; height: 0.875rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -3133,17 +3141,23 @@ function createProjectCard(project) {
             </div>
             
             <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-                <button class="btn btn-ghost btn-sm" onclick="openNewTaskModal(${project.id})">
+                <button class="btn btn-ghost btn-sm" onclick="openNewTaskModal('${project.id}')">
                     <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                     </svg>
                     할 일 추가
                 </button>
-                <button class="btn btn-ghost btn-sm" onclick="editProject(${project.id})">
+                <button class="btn btn-ghost btn-sm" onclick="editProject('${project.id}')">
                     <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                     </svg>
                     편집
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="deleteProject('${project.id}')" style="color: var(--error-600);">
+                    <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    삭제
                 </button>
             </div>
         </div>
