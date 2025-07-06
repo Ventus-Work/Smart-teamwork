@@ -2044,6 +2044,10 @@ function enableTaskEditMode(task) {
     // 편집 버튼을 저장 버튼으로 변경
     const editBtn = document.getElementById('editTaskHeader');
     if (editBtn) {
+        // 기존 이벤트 리스너 모두 제거
+        editBtn.onclick = null;
+        editBtn.removeEventListener('click', handleTaskEdit);
+        
         editBtn.innerHTML = `
             <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -2053,11 +2057,13 @@ function enableTaskEditMode(task) {
         editBtn.style.backgroundColor = 'var(--success-500)';
         editBtn.style.color = 'white';
         
-        // 함수 직접 정의로 변경
-        editBtn.onclick = function() {
+        // 새로운 이벤트 리스너 추가
+        editBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             console.log('저장 버튼 클릭됨');
             saveTaskEdit(task);
-        };
+        });
     } else {
         console.error('편집 버튼을 찾을 수 없습니다.');
     }
@@ -2754,6 +2760,20 @@ function renderTaskComments(comments) {
                         <div style="font-size: var(--text-xs); color: var(--text-tertiary);">${comment.created_at ? new Date(comment.created_at).toLocaleString('ko-KR') : '방금 전'}</div>
                     </div>
                 </div>
+                <div style="display: flex; gap: var(--space-2);">
+                    ${comment.author_id === (currentUser?.id || 'demo-user') ? `
+                        <button class="btn btn-ghost btn-xs" onclick="editComment('${comment.id}')" title="댓글 수정">
+                            <svg style="width: 0.875rem; height: 0.875rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            </svg>
+                        </button>
+                        <button class="btn btn-ghost btn-xs" onclick="deleteComment('${comment.id}')" title="댓글 삭제" style="color: var(--error-600);">
+                            <svg style="width: 0.875rem; height: 0.875rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    ` : ''}
+                </div>
             </div>
             <p style="color: var(--text-secondary); line-height: var(--leading-relaxed); margin: 0;">${comment.content || ''}</p>
         </div>
@@ -2883,6 +2903,136 @@ async function handleAddComment() {
     } catch (error) {
         console.error('댓글 추가 실패:', error);
         showNotification('댓글 추가에 실패했습니다.', 'error');
+    }
+}
+
+// 댓글 삭제 함수
+async function deleteComment(commentId) {
+    if (!confirm('이 댓글을 삭제하시겠습니까?')) {
+        return;
+    }
+    
+    try {
+        console.log('댓글 삭제 시작:', commentId);
+        
+        if (isDemoMode) {
+            // 데모 모드에서 로컬 삭제
+            let comments = [];
+            const storedComments = localStorage.getItem('demo_comments');
+            if (storedComments) {
+                comments = JSON.parse(storedComments);
+                comments = comments.filter(c => c.id !== commentId);
+                localStorage.setItem('demo_comments', JSON.stringify(comments));
+                console.log('로컬 스토리지에서 댓글 삭제 완료');
+            }
+        } else if (supabase) {
+            // Supabase에서 삭제
+            const { error } = await supabase
+                .from('comments')
+                .delete()
+                .eq('id', commentId);
+                
+            if (error) {
+                console.error('Supabase 댓글 삭제 오류:', error);
+                showNotification(`댓글 삭제 오류: ${error.message}`, 'error');
+                throw error;
+            }
+            
+            console.log('Supabase에서 댓글 삭제 완료');
+        }
+        
+        showNotification('댓글이 삭제되었습니다.', 'success');
+        
+        // 댓글 목록 새로고침
+        if (currentTaskId) {
+            loadTaskComments(currentTaskId);
+        }
+        
+    } catch (error) {
+        console.error('댓글 삭제 실패:', error);
+        showNotification('댓글 삭제에 실패했습니다.', 'error');
+    }
+}
+
+// 댓글 수정 함수
+async function editComment(commentId) {
+    try {
+        console.log('댓글 수정 시작:', commentId);
+        
+        // 현재 댓글 찾기
+        let comment = null;
+        
+        if (isDemoMode) {
+            const storedComments = localStorage.getItem('demo_comments');
+            if (storedComments) {
+                const comments = JSON.parse(storedComments);
+                comment = comments.find(c => c.id === commentId);
+            }
+        } else if (supabase) {
+            const { data, error } = await supabase
+                .from('comments')
+                .select('*')
+                .eq('id', commentId)
+                .single();
+                
+            if (error) {
+                console.error('댓글 조회 오류:', error);
+                throw error;
+            }
+            
+            comment = data;
+        }
+        
+        if (!comment) {
+            showNotification('댓글을 찾을 수 없습니다.', 'error');
+            return;
+        }
+        
+        // 새로운 내용 입력받기
+        const newContent = prompt('댓글을 수정하세요:', comment.content);
+        if (!newContent || newContent.trim() === '') {
+            return; // 취소하거나 빈 내용
+        }
+        
+        // 댓글 업데이트
+        if (isDemoMode) {
+            let comments = [];
+            const storedComments = localStorage.getItem('demo_comments');
+            if (storedComments) {
+                comments = JSON.parse(storedComments);
+                const commentIndex = comments.findIndex(c => c.id === commentId);
+                if (commentIndex !== -1) {
+                    comments[commentIndex].content = newContent.trim();
+                    comments[commentIndex].updated_at = new Date().toISOString();
+                    localStorage.setItem('demo_comments', JSON.stringify(comments));
+                }
+            }
+        } else if (supabase) {
+            const { error } = await supabase
+                .from('comments')
+                .update({
+                    content: newContent.trim(),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', commentId);
+                
+            if (error) {
+                console.error('댓글 수정 오류:', error);
+                showNotification(`댓글 수정 오류: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        showNotification('댓글이 수정되었습니다.', 'success');
+        
+        // 댓글 목록 새로고침
+        if (currentTaskId) {
+            loadTaskComments(currentTaskId);
+        }
+        
+    } catch (error) {
+        console.error('댓글 수정 실패:', error);
+        showNotification('댓글 수정에 실패했습니다.', 'error');
     }
 }
 
@@ -3017,7 +3167,7 @@ function editProject(projectId) {
     }
     
     // 모달 표시
-    showModal('projectEditModal');
+    openModal('projectEditModal');
 }
 
 // 프로젝트 삭제
