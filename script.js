@@ -1944,13 +1944,22 @@ function enableTaskEditMode(task) {
     // 제목 편집 가능하게 만들기
     const titleElement = document.getElementById('taskDetailMainTitle');
     if (titleElement) {
-        const currentTitle = titleElement.textContent.trim();
-        titleElement.innerHTML = `<input type="text" id="editTaskTitle" class="form-control" value="${currentTitle}" style="background-color: #fff3cd; border-color: #ffeaa7; color: black;">`;
+        // task 객체에서 직접 제목 가져오기 (더 안전함)
+        const currentTitle = task.title || titleElement.textContent.trim();
+        console.log('현재 제목:', currentTitle);
+        
+        // HTML escape 처리
+        const escapedTitle = currentTitle.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        titleElement.innerHTML = `<input type="text" id="editTaskTitle" class="form-control" value="${escapedTitle}" style="background-color: #fff3cd; border-color: #ffeaa7; color: black;">`;
         
         // Enter 키로 저장, Esc 키로 취소
         const titleInput = document.getElementById('editTaskTitle');
         if (titleInput) {
+            // 값 다시 설정 (보험용)
+            titleInput.value = currentTitle;
             titleInput.focus();
+            titleInput.select(); // 텍스트 전체 선택
+            
             titleInput.addEventListener('keydown', (e) => {
                 e.stopPropagation();
                 if (e.key === 'Enter') {
@@ -1987,11 +1996,19 @@ function enableTaskEditMode(task) {
     // 설명 편집 가능하게 만들기
     const descriptionElement = document.getElementById('taskDetailDescription');
     if (descriptionElement) {
-        const currentDescription = descriptionElement.textContent.trim();
-        descriptionElement.innerHTML = `<textarea id="editTaskDescription" class="form-control" rows="3" style="background-color: #fff3cd; border-color: #ffeaa7; color: black;">${currentDescription}</textarea>`;
+        // task 객체에서 직접 설명 가져오기
+        const currentDescription = task.description || descriptionElement.textContent.trim();
+        console.log('현재 설명:', currentDescription);
+        
+        // HTML escape 처리
+        const escapedDescription = currentDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        descriptionElement.innerHTML = `<textarea id="editTaskDescription" class="form-control" rows="3" style="background-color: #fff3cd; border-color: #ffeaa7; color: black;">${escapedDescription}</textarea>`;
         
         const descriptionTextarea = document.getElementById('editTaskDescription');
         if (descriptionTextarea) {
+            // 값 다시 설정 (보험용)
+            descriptionTextarea.value = currentDescription;
+            
             descriptionTextarea.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
