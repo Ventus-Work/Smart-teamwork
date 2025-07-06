@@ -1892,6 +1892,7 @@ function enableTaskEditMode(task) {
     console.log('설명 요소:', document.getElementById('taskDetailDescription'));
     console.log('시작일 요소:', document.getElementById('taskDetailStartDate'));
     console.log('마감일 요소:', document.getElementById('taskDetailDueDate'));
+    console.log('프로젝트 요소:', document.getElementById('taskDetailProject'));
     
     // 먼저 기존의 취소 버튼이 있으면 제거
     const existingCancelBtn = document.getElementById('cancelEditBtn');
@@ -1922,6 +1923,24 @@ function enableTaskEditMode(task) {
         }
     } else {
         console.error('제목 요소를 찾을 수 없습니다.');
+    }
+    
+    // 프로젝트 선택 가능하게 만들기
+    const projectElement = document.getElementById('taskDetailProject');
+    if (projectElement) {
+        let projectOptions = '';
+        currentProjects.forEach(project => {
+            const selected = project.id === task.project_id ? 'selected' : '';
+            projectOptions += `<option value="${project.id}" ${selected}>${project.name}</option>`;
+        });
+        
+        projectElement.innerHTML = `
+            <select id="editTaskProject" class="form-control" style="background-color: #fff3cd; border-color: #ffeaa7; color: black; font-size: var(--text-xs); padding: 2px 5px;">
+                ${projectOptions}
+            </select>
+        `;
+    } else {
+        console.error('프로젝트 요소를 찾을 수 없습니다.');
     }
     
     // 설명 편집 가능하게 만들기
@@ -2061,6 +2080,7 @@ async function saveTaskEdit(task) {
     const descriptionTextarea = document.getElementById('editTaskDescription');
     const startDateInput = document.getElementById('editTaskStartDate');
     const dueDateInput = document.getElementById('editTaskDueDate');
+    const projectSelect = document.getElementById('editTaskProject');
     
     if (!titleInput || !descriptionTextarea) {
         showNotification('편집 중인 내용을 찾을 수 없습니다.', 'error');
@@ -2071,6 +2091,7 @@ async function saveTaskEdit(task) {
     const newDescription = descriptionTextarea.value.trim();
     const newStartDate = startDateInput ? startDateInput.value : task.start_date;
     const newDueDate = dueDateInput ? dueDateInput.value : task.due_date;
+    const newProjectId = projectSelect ? projectSelect.value : task.project_id;
     
     if (!newTitle) {
         showNotification('제목을 입력해주세요.', 'warning');
@@ -2079,27 +2100,46 @@ async function saveTaskEdit(task) {
     }
     
     try {
+        console.log('작업 저장 시작:', {
+            id: task.id,
+            title: newTitle,
+            description: newDescription,
+            project_id: newProjectId,
+            start_date: newStartDate || null,
+            due_date: newDueDate || null
+        });
+        
         const updateData = {
             title: newTitle,
             description: newDescription,
+            project_id: newProjectId,
             start_date: newStartDate || null,
             due_date: newDueDate || null,
             updated_at: new Date().toISOString()
         };
         
         if (isDemoMode) {
+            console.log('데모 모드에서 작업 저장:', updateData);
             const taskIndex = currentTasks.findIndex(t => t.id === task.id);
             if (taskIndex !== -1) {
                 Object.assign(currentTasks[taskIndex], updateData);
                 localStorage.setItem('demo_tasks', JSON.stringify(currentTasks));
+                console.log('로컬 스토리지에 저장 완료');
             }
         } else if (supabase) {
-            const { error } = await supabase
+            console.log('Supabase에 작업 저장:', task.id, updateData);
+            const { data, error } = await supabase
                 .from('todos')
                 .update(updateData)
-                .eq('id', task.id);
+                .eq('id', task.id)
+                .select();
                 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase 작업 저장 오류:', error);
+                throw error;
+            }
+            
+            console.log('Supabase 작업 저장 결과:', data);
             
             const taskIndex = currentTasks.findIndex(t => t.id === task.id);
             if (taskIndex !== -1) {
@@ -2466,6 +2506,7 @@ function populateTaskDetailModal(task) {
         projectElement.textContent = project ? project.name : '프로젝트 없음';
         if (project) {
             projectElement.style.backgroundColor = project.color || '#3B82F6';
+            projectElement.dataset.projectId = project.id; // 프로젝트 ID 저장
         }
     }
 
