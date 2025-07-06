@@ -207,7 +207,10 @@ function updateRecentTasksList() {
         
         // 프로젝트 필터 적용
         if (currentProjectFilter !== 'all') {
-            filteredTasks = filteredTasks.filter(task => task.project_id === currentProjectFilter);
+            // 문자열과 숫자 ID 모두 처리하도록 수정
+            filteredTasks = filteredTasks.filter(task => {
+                return String(task.project_id) === String(currentProjectFilter);
+            });
         }
         
         // 최근 순으로 정렬하고 상위 10개 선택
@@ -215,12 +218,11 @@ function updateRecentTasksList() {
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
             .slice(0, 10);
         
-        // 기존 task-item들 제거 (padding container 내부)
-        const paddingContainer = recentTasksContainer.querySelector('div:last-child');
-        if (paddingContainer) {
-            // 기존 task-item들만 제거
-            const existingTaskItems = paddingContainer.querySelectorAll('.task-item');
-            existingTaskItems.forEach(item => item.remove());
+        // 할일 목록을 렌더링할 컨테이너 찾기
+        const tasksListContainer = document.getElementById('recentTasksList');
+        if (tasksListContainer) {
+            // 기존 task-item들 모두 제거
+            tasksListContainer.innerHTML = '';
             
             // 새로운 할일 목록 렌더링
             if (recentTasks.length === 0) {
@@ -229,7 +231,7 @@ function updateRecentTasksList() {
                     emptyMessage = '선택한 필터 조건에 맞는 할일이 없습니다.';
                 }
                 
-                paddingContainer.innerHTML = `
+                tasksListContainer.innerHTML = `
                     <div style="text-align: center; padding: var(--space-8); color: var(--text-tertiary);">
                         <svg style="width: 3rem; height: 3rem; margin: 0 auto var(--space-4) auto; opacity: 0.5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
@@ -279,7 +281,12 @@ function updateRecentTasksList() {
                         </div>
                     `;
                     
-                    paddingContainer.appendChild(taskElement);
+                    // 클릭 이벤트 추가
+                    taskElement.addEventListener('click', () => {
+                        openTaskDetail(task.id);
+                    });
+                    
+                    tasksListContainer.appendChild(taskElement);
                 });
             }
         }
@@ -895,6 +902,9 @@ function handleStatsCardClick(filterType) {
     // 할 일 목록 업데이트
     updateRecentTasksList();
     
+    // 대시보드 통계 업데이트
+    updateDashboardStats();
+    
     // 시각적 피드백
     showNotification(`${getFilterDisplayName(filterType)} 작업만 표시합니다`, 'info');
 }
@@ -932,6 +942,9 @@ function selectProjectFromDropdown(projectId) {
     // 할 일 목록 업데이트
     updateRecentTasksList();
     
+    // 대시보드 통계 업데이트 (필터가 변경되었으므로)
+    updateDashboardStats();
+    
     // 드롭다운 닫기
     const dropdown = document.getElementById('projectDropdown');
     if (dropdown) {
@@ -940,7 +953,7 @@ function selectProjectFromDropdown(projectId) {
     
     // 시각적 피드백
     const projectName = projectId === 'all' ? '모든 프로젝트' : 
-        currentProjects.find(p => p.id == projectId)?.name || '선택된 프로젝트';
+        currentProjects.find(p => String(p.id) === String(projectId))?.name || '선택된 프로젝트';
     showNotification(`${projectName}의 작업만 표시합니다`, 'info');
 }
 
@@ -957,21 +970,60 @@ function getFilterDisplayName(filterType) {
 
 // 프로젝트 필터 옵션 업데이트
 function updateProjectFilterOptions() {
+    // 프로젝트 필터 드롭다운 업데이트
     const projectFilter = document.getElementById('projectFilter');
-    if (!projectFilter) return;
-    
-    // 기존 옵션 제거 (첫 번째 기본 옵션 제외)
-    while (projectFilter.children.length > 1) {
-        projectFilter.removeChild(projectFilter.lastChild);
+    if (projectFilter) {
+        // 기존 옵션 제거 (첫 번째 기본 옵션 제외)
+        while (projectFilter.children.length > 1) {
+            projectFilter.removeChild(projectFilter.lastChild);
+        }
+        
+        // 현재 프로젝트들을 옵션으로 추가
+        currentProjects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = project.name;
+            projectFilter.appendChild(option);
+        });
     }
     
-    // 현재 프로젝트들을 옵션으로 추가
-    currentProjects.forEach(project => {
-        const option = document.createElement('option');
-        option.value = project.id;
-        option.textContent = project.name;
-        projectFilter.appendChild(option);
-    });
+    // 프로젝트 드롭다운 메뉴 업데이트
+    const projectDropdownList = document.getElementById('projectDropdownList');
+    if (projectDropdownList) {
+        projectDropdownList.innerHTML = '';
+        
+        // 모든 프로젝트 옵션 추가
+        const allOption = document.createElement('div');
+        allOption.className = 'project-dropdown-item';
+        allOption.dataset.project = 'all';
+        allOption.style.cssText = 'padding: var(--space-2); border-radius: var(--radius-md); cursor: pointer; transition: background-color 0.2s ease; display: flex; align-items: center; gap: var(--space-2);';
+        allOption.onclick = () => selectProjectFromDropdown('all');
+        allOption.onmouseover = () => allOption.style.backgroundColor = 'var(--bg-secondary)';
+        allOption.onmouseout = () => allOption.style.backgroundColor = 'transparent';
+        allOption.innerHTML = `
+            <div style="width: 8px; height: 8px; background-color: var(--neutral-400); border-radius: 50%;"></div>
+            <span style="font-size: var(--text-sm); color: var(--text-primary);">모든 프로젝트</span>
+        `;
+        projectDropdownList.appendChild(allOption);
+        
+        // 현재 프로젝트들을 옵션으로 추가
+        currentProjects.forEach(project => {
+            const option = document.createElement('div');
+            option.className = 'project-dropdown-item';
+            option.dataset.project = project.id;
+            option.style.cssText = 'padding: var(--space-2); border-radius: var(--radius-md); cursor: pointer; transition: background-color 0.2s ease; display: flex; align-items: center; gap: var(--space-2);';
+            option.onclick = () => selectProjectFromDropdown(project.id);
+            option.onmouseover = () => option.style.backgroundColor = 'var(--bg-secondary)';
+            option.onmouseout = () => option.style.backgroundColor = 'transparent';
+            
+            const projectColor = project.color || 'var(--primary-500)';
+            option.innerHTML = `
+                <div style="width: 8px; height: 8px; background-color: ${projectColor}; border-radius: 50%;"></div>
+                <span style="font-size: var(--text-sm); color: var(--text-primary);">${project.name}</span>
+            `;
+            projectDropdownList.appendChild(option);
+        });
+    }
 }
 
 // 로그인 처리
@@ -2126,14 +2178,18 @@ function enableTaskEditMode(task) {
             titleInput.focus();
             titleInput.select(); // 텍스트 전체 선택
             
-            // Enter 키로 저장 기능 제거 - 저장 버튼만 사용하도록 변경
+            // Enter 키로 저장 기능 완전히 제거
             titleInput.addEventListener('keydown', (e) => {
                 e.stopPropagation();
                 if (e.key === 'Escape') {
                     e.preventDefault();
                     cancelTaskEdit(task);
                 }
-                // Enter 키 저장 기능 제거
+                // Enter 키 이벤트 기본 동작 막기
+                if (e.key === 'Enter') {
+                    e.preventDefault(); // Enter 키의 기본 동작 및 이벤트 전파 방지
+                    return false;
+                }
             });
         }
     } else {
@@ -2174,13 +2230,17 @@ function enableTaskEditMode(task) {
             // 값 다시 설정 (보험용)
             descriptionTextarea.value = currentDescription;
             
-            // Enter 키로 저장 기능 제거 - 저장 버튼만 사용하도록 변경
+            // Enter 키로 저장 기능 완전 제거
             descriptionTextarea.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     e.preventDefault();
                     cancelTaskEdit(task);
                 }
                 // Enter 키 저장 기능 제거 (Shift+Enter는 줄바꿈으로 유지)
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.stopPropagation(); // 이벤트 버블링 방지
+                    // 줄바꿈 허용 - 저장 기능은 없애기
+                }
             });
         }
     } else {
@@ -2285,7 +2345,7 @@ function enableTaskEditMode(task) {
     }
     
     console.log('편집 모드 UI 변경 완료');
-    showNotification('편집 모드가 활성화되었습니다. Enter로 저장, Esc로 취소하세요.', 'info');
+    showNotification('편집 모드가 활성화되었습니다.', 'info');
 }
 
 // 작업 제목 저장
