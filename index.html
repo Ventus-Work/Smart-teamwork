@@ -238,7 +238,7 @@
                 
                 <!-- 통계 카드들 -->
                 <div class="dashboard-stats">
-                    <div class="stats-card">
+                    <div class="stats-card" data-filter="all" style="cursor: pointer; transition: all 0.2s ease;" onclick="handleStatsCardClick('all')" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='var(--shadow-sm)'">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2);">
                             <h3 style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-tertiary);">전체 할 일</h3>
                             <div style="background-color: var(--primary-50); padding: var(--space-2); border-radius: var(--radius-lg);">
@@ -251,7 +251,7 @@
                         <p style="font-size: var(--text-sm); color: var(--text-tertiary);">개의 작업이 있습니다</p>
                     </div>
                     
-                    <div class="stats-card">
+                    <div class="stats-card" data-filter="in_progress" style="cursor: pointer; transition: all 0.2s ease;" onclick="handleStatsCardClick('in_progress')" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='var(--shadow-sm)'">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2);">
                             <h3 style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-tertiary);">진행 중</h3>
                             <div style="background-color: var(--warning-50); padding: var(--space-2); border-radius: var(--radius-lg);">
@@ -264,7 +264,7 @@
                         <p style="font-size: var(--text-sm); color: var(--text-tertiary);">개의 작업이 진행 중</p>
                     </div>
                     
-                    <div class="stats-card">
+                    <div class="stats-card" data-filter="completed" style="cursor: pointer; transition: all 0.2s ease;" onclick="handleStatsCardClick('completed')" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='var(--shadow-sm)'">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2);">
                             <h3 style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-tertiary);">완료</h3>
                             <div style="background-color: var(--success-50); padding: var(--space-2); border-radius: var(--radius-lg);">
@@ -277,7 +277,7 @@
                         <p style="font-size: var(--text-sm); color: var(--text-tertiary);">개의 작업이 완료됨</p>
                     </div>
                     
-                    <div class="stats-card">
+                    <div class="stats-card" style="position: relative; cursor: pointer; transition: all 0.2s ease;" onclick="handleProjectStatsClick()" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-lg)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='var(--shadow-sm)'">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2);">
                             <h3 style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-tertiary);">프로젝트</h3>
                             <div style="background-color: var(--secondary-100); padding: var(--space-2); border-radius: var(--radius-lg);">
@@ -288,14 +288,71 @@
                         </div>
                         <p style="font-size: var(--text-3xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: var(--space-1);">2</p>
                         <p style="font-size: var(--text-sm); color: var(--text-tertiary);">개의 활성 프로젝트</p>
+                        
+                        <!-- 프로젝트 드롭다운 -->
+                        <div id="projectDropdown" class="d-none" style="position: absolute; top: 100%; left: 0; right: 0; margin-top: var(--space-2); background-color: var(--bg-card); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: var(--z-dropdown); padding: var(--space-2);">
+                            <div style="padding: var(--space-2); border-bottom: 1px solid var(--border-primary); margin-bottom: var(--space-2);">
+                                <p style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-primary);">프로젝트별 필터링</p>
+                            </div>
+                            <div id="projectDropdownList">
+                                <!-- 동적으로 프로젝트 목록 생성 -->
+                                <div class="project-dropdown-item" data-project="all" style="padding: var(--space-2); border-radius: var(--radius-md); cursor: pointer; transition: background-color 0.2s ease; display: flex; align-items: center; gap: var(--space-2);" onclick="selectProjectFromDropdown('all')" onmouseover="this.style.backgroundColor='var(--bg-secondary)'" onmouseout="this.style.backgroundColor='transparent'">
+                                    <div style="width: 8px; height: 8px; background-color: var(--neutral-400); border-radius: 50%;"></div>
+                                    <span style="font-size: var(--text-sm); color: var(--text-primary);">모든 프로젝트</span>
+                                </div>
+                                <div class="project-dropdown-item" data-project="1" style="padding: var(--space-2); border-radius: var(--radius-md); cursor: pointer; transition: background-color 0.2s ease; display: flex; align-items: center; gap: var(--space-2);" onclick="selectProjectFromDropdown('1')" onmouseover="this.style.backgroundColor='var(--bg-secondary)'" onmouseout="this.style.backgroundColor='transparent'">
+                                    <div style="width: 8px; height: 8px; background-color: var(--primary-500); border-radius: 50%;"></div>
+                                    <span style="font-size: var(--text-sm); color: var(--text-primary);">웹사이트 리뉴얼</span>
+                                </div>
+                                <div class="project-dropdown-item" data-project="2" style="padding: var(--space-2); border-radius: var(--radius-md); cursor: pointer; transition: background-color 0.2s ease; display: flex; align-items: center; gap: var(--space-2);" onclick="selectProjectFromDropdown('2')" onmouseover="this.style.backgroundColor='var(--bg-secondary)'" onmouseout="this.style.backgroundColor='transparent'">
+                                    <div style="width: 8px; height: 8px; background-color: var(--success-500); border-radius: 50%;"></div>
+                                    <span style="font-size: var(--text-sm); color: var(--text-primary);">모바일 앱 개발</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
                 <!-- 최근 할 일 -->
                 <div class="recent-tasks-container">
                     <div style="padding: var(--space-4); border-bottom: 1px solid var(--border-primary);">
-                        <h2 style="font-size: var(--text-xl); font-weight: var(--font-semibold); color: var(--text-primary);">최근 할 일</h2>
-                        <p style="font-size: var(--text-sm); color: var(--text-tertiary); margin-top: var(--space-1);">현재 진행 중인 작업들을 확인하세요</p>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-2);">
+                            <div>
+                                <h2 style="font-size: var(--text-xl); font-weight: var(--font-semibold); color: var(--text-primary);">최근 할 일</h2>
+                                <p style="font-size: var(--text-sm); color: var(--text-tertiary); margin-top: var(--space-1);">현재 진행 중인 작업들을 확인하세요</p>
+                            </div>
+                            
+                            <!-- 필터링 컨트롤 -->
+                            <div style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
+                                <!-- 상태별 필터 -->
+                                <div>
+                                    <label style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1); display: block;">상태</label>
+                                    <select id="statusFilter" class="form-control" style="font-size: var(--text-sm); padding: var(--space-1) var(--space-2); min-width: 120px;">
+                                        <option value="all">전체</option>
+                                        <option value="pending">대기중</option>
+                                        <option value="in_progress">진행중</option>
+                                        <option value="completed">완료</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- 프로젝트별 필터 -->
+                                <div>
+                                    <label style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1); display: block;">프로젝트</label>
+                                    <select id="projectFilter" class="form-control" style="font-size: var(--text-sm); padding: var(--space-1) var(--space-2); min-width: 150px;">
+                                        <option value="all">모든 프로젝트</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- 필터 초기화 버튼 -->
+                                <div style="align-self: flex-end;">
+                                    <button id="resetFilters" class="btn btn-ghost btn-sm" title="필터 초기화">
+                                        <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div style="padding: var(--space-4);">

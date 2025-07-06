@@ -62,6 +62,7 @@ let currentComments = [];
 let currentView = 'dashboard';
 let currentFilter = 'all';
 let currentProjectFilter = 'all'; // 프로젝트 필터 추가
+let currentStatusFilter = 'all'; // 상태 필터 추가
 let currentTaskId = null;
 let currentEditingProject = null;
 let currentDate = new Date();
@@ -187,11 +188,32 @@ function updateRecentTasksList() {
             return;
         }
         
-        // 최근 5개 할일 가져오기 (진행중과 대기 상태 우선)
-        const recentTasks = currentTasks
-            .filter(task => task.status !== 'done' && task.status !== 'completed')
+        // 필터링된 할일 목록 가져오기
+        let filteredTasks = [...currentTasks];
+        
+        // 상태 필터 적용
+        if (currentStatusFilter !== 'all') {
+            filteredTasks = filteredTasks.filter(task => {
+                if (currentStatusFilter === 'pending') {
+                    return task.status === 'pending' || task.status === 'todo';
+                } else if (currentStatusFilter === 'in_progress') {
+                    return task.status === 'in_progress' || task.status === 'doing';
+                } else if (currentStatusFilter === 'completed') {
+                    return task.status === 'completed' || task.status === 'done';
+                }
+                return true;
+            });
+        }
+        
+        // 프로젝트 필터 적용
+        if (currentProjectFilter !== 'all') {
+            filteredTasks = filteredTasks.filter(task => task.project_id === currentProjectFilter);
+        }
+        
+        // 최근 순으로 정렬하고 상위 10개 선택
+        const recentTasks = filteredTasks
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-            .slice(0, 5);
+            .slice(0, 10);
         
         // 기존 task-item들 제거 (padding container 내부)
         const paddingContainer = recentTasksContainer.querySelector('div:last-child');
@@ -202,12 +224,17 @@ function updateRecentTasksList() {
             
             // 새로운 할일 목록 렌더링
             if (recentTasks.length === 0) {
+                let emptyMessage = '할일이 없습니다.';
+                if (currentStatusFilter !== 'all' || currentProjectFilter !== 'all') {
+                    emptyMessage = '선택한 필터 조건에 맞는 할일이 없습니다.';
+                }
+                
                 paddingContainer.innerHTML = `
                     <div style="text-align: center; padding: var(--space-8); color: var(--text-tertiary);">
                         <svg style="width: 3rem; height: 3rem; margin: 0 auto var(--space-4) auto; opacity: 0.5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                         </svg>
-                        <p>진행 중인 할일이 없습니다.</p>
+                        <p>${emptyMessage}</p>
                         <p style="font-size: var(--text-sm); margin-top: var(--space-2);">새로운 할일을 추가해보세요!</p>
                     </div>
                 `;
@@ -810,6 +837,141 @@ function setupEventListeners() {
             openTaskDetail(taskId);
         });
     });
+    
+    // 필터 이벤트 리스너 설정
+    setupFilterListeners();
+}
+
+// 필터 이벤트 리스너 설정
+function setupFilterListeners() {
+    const statusFilter = document.getElementById('statusFilter');
+    const projectFilter = document.getElementById('projectFilter');
+    const resetFilters = document.getElementById('resetFilters');
+    
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            currentStatusFilter = this.value;
+            updateRecentTasksList();
+            updateDashboardStats();
+        });
+    }
+    
+    if (projectFilter) {
+        projectFilter.addEventListener('change', function() {
+            currentProjectFilter = this.value;
+            updateRecentTasksList();
+            updateDashboardStats();
+        });
+    }
+    
+    if (resetFilters) {
+        resetFilters.addEventListener('click', function() {
+            currentStatusFilter = 'all';
+            currentProjectFilter = 'all';
+            
+            if (statusFilter) statusFilter.value = 'all';
+            if (projectFilter) projectFilter.value = 'all';
+            
+            updateRecentTasksList();
+            updateDashboardStats();
+            updateProjectFilterOptions();
+        });
+    }
+    
+    // 프로젝트 필터 옵션 업데이트
+    updateProjectFilterOptions();
+}
+
+// 통계 카드 클릭 핸들러
+function handleStatsCardClick(filterType) {
+    currentStatusFilter = filterType;
+    
+    // 상태 필터 드롭다운 업데이트
+    const statusFilter = document.getElementById('statusFilter');
+    if (statusFilter) {
+        statusFilter.value = filterType;
+    }
+    
+    // 할 일 목록 업데이트
+    updateRecentTasksList();
+    
+    // 시각적 피드백
+    showNotification(`${getFilterDisplayName(filterType)} 작업만 표시합니다`, 'info');
+}
+
+// 프로젝트 통계 카드 클릭 핸들러
+function handleProjectStatsClick() {
+    const dropdown = document.getElementById('projectDropdown');
+    if (dropdown) {
+        dropdown.classList.toggle('d-none');
+        
+        // 다른 곳 클릭시 드롭다운 닫기
+        const handleOutsideClick = (e) => {
+            if (!e.target.closest('.stats-card[onclick="handleProjectStatsClick()"]')) {
+                dropdown.classList.add('d-none');
+                document.removeEventListener('click', handleOutsideClick);
+            }
+        };
+        
+        setTimeout(() => {
+            document.addEventListener('click', handleOutsideClick);
+        }, 0);
+    }
+}
+
+// 프로젝트 드롭다운에서 선택
+function selectProjectFromDropdown(projectId) {
+    currentProjectFilter = projectId;
+    
+    // 프로젝트 필터 드롭다운 업데이트
+    const projectFilter = document.getElementById('projectFilter');
+    if (projectFilter) {
+        projectFilter.value = projectId;
+    }
+    
+    // 할 일 목록 업데이트
+    updateRecentTasksList();
+    
+    // 드롭다운 닫기
+    const dropdown = document.getElementById('projectDropdown');
+    if (dropdown) {
+        dropdown.classList.add('d-none');
+    }
+    
+    // 시각적 피드백
+    const projectName = projectId === 'all' ? '모든 프로젝트' : 
+        currentProjects.find(p => p.id == projectId)?.name || '선택된 프로젝트';
+    showNotification(`${projectName}의 작업만 표시합니다`, 'info');
+}
+
+// 필터 이름 표시용 함수
+function getFilterDisplayName(filterType) {
+    switch(filterType) {
+        case 'all': return '전체';
+        case 'pending': return '대기중';
+        case 'in_progress': return '진행중';
+        case 'completed': return '완료';
+        default: return '전체';
+    }
+}
+
+// 프로젝트 필터 옵션 업데이트
+function updateProjectFilterOptions() {
+    const projectFilter = document.getElementById('projectFilter');
+    if (!projectFilter) return;
+    
+    // 기존 옵션 제거 (첫 번째 기본 옵션 제외)
+    while (projectFilter.children.length > 1) {
+        projectFilter.removeChild(projectFilter.lastChild);
+    }
+    
+    // 현재 프로젝트들을 옵션으로 추가
+    currentProjects.forEach(project => {
+        const option = document.createElement('option');
+        option.value = project.id;
+        option.textContent = project.name;
+        projectFilter.appendChild(option);
+    });
 }
 
 // 로그인 처리
@@ -1139,6 +1301,7 @@ async function loadUserData() {
     updateDashboard();
     updateProjectsView();
     renderCalendar();
+    updateProjectFilterOptions(); // 필터 옵션 업데이트
     
     // 이벤트 리스너 재설정 (데이터 로드 후 필요)
     setupEventListeners();
@@ -1263,7 +1426,7 @@ async function handleNewTask(e) {
             id: newTaskId,
             title: taskTitle.trim(),
             description: taskDescription?.trim() || '',
-            project_id: parseInt(taskProject),
+            project_id: taskProject,  // UUID는 문자열로 유지
             status: 'pending',
             priority: taskPriority,
             start_date: taskStartDate || null,
@@ -1278,13 +1441,13 @@ async function handleNewTask(e) {
             currentTasks.push(newTask);
             localStorage.setItem('demo_tasks', JSON.stringify(currentTasks));
         } else if (supabase && currentWorkspace) {
-            // Supabase에 저장
+            // Supabase에 저장 - project_id를 문자열로 전송 (UUID 타입)
             const { data, error } = await supabase
                 .from('todos')
                 .insert([{
                     title: taskTitle.trim(),
                     description: taskDescription?.trim() || '',
-                    project_id: parseInt(taskProject),
+                    project_id: taskProject,  // parseInt 제거 - UUID는 문자열
                     status: 'pending',
                     priority: taskPriority,
                     start_date: taskStartDate || null,
@@ -1306,6 +1469,7 @@ async function handleNewTask(e) {
         updateProjectsView();
         updateDashboard();
         renderCalendar();
+        updateProjectFilterOptions(); // 필터 옵션 업데이트
         
         closeModal('newTaskModal');
         form.reset();
@@ -1389,6 +1553,7 @@ async function handleNewProject(e) {
         updateProjectsView();
         updateDashboard();
         renderCalendar();
+        updateProjectFilterOptions(); // 필터 옵션 업데이트
         
         closeModal('newProjectModal');
         form.reset();
@@ -1444,6 +1609,7 @@ async function loadDemoData() {
     updateProjectsView();
     updateDashboard();
     initCalendar();
+    updateProjectFilterOptions(); // 필터 옵션 초기화
     
     // 로컬스토리지에 데이터 저장
     localStorage.setItem('demo_projects', JSON.stringify(currentProjects));
@@ -1960,15 +2126,14 @@ function enableTaskEditMode(task) {
             titleInput.focus();
             titleInput.select(); // 텍스트 전체 선택
             
+            // Enter 키로 저장 기능 제거 - 저장 버튼만 사용하도록 변경
             titleInput.addEventListener('keydown', (e) => {
                 e.stopPropagation();
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    saveTaskEdit(task);
-                } else if (e.key === 'Escape') {
+                if (e.key === 'Escape') {
                     e.preventDefault();
                     cancelTaskEdit(task);
                 }
+                // Enter 키 저장 기능 제거
             });
         }
     } else {
@@ -2009,14 +2174,13 @@ function enableTaskEditMode(task) {
             // 값 다시 설정 (보험용)
             descriptionTextarea.value = currentDescription;
             
+            // Enter 키로 저장 기능 제거 - 저장 버튼만 사용하도록 변경
             descriptionTextarea.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    saveTaskEdit(task);
-                } else if (e.key === 'Escape') {
+                if (e.key === 'Escape') {
                     e.preventDefault();
                     cancelTaskEdit(task);
                 }
+                // Enter 키 저장 기능 제거 (Shift+Enter는 줄바꿈으로 유지)
             });
         }
     } else {
@@ -2048,6 +2212,14 @@ function enableTaskEditMode(task) {
         editBtn.onclick = null;
         editBtn.removeEventListener('click', handleTaskEdit);
         
+        // 모든 기존 이벤트 리스너 제거
+        if (editBtn._saveHandler) {
+            editBtn.removeEventListener('click', editBtn._saveHandler);
+        }
+        if (editBtn._oldClickListener) {
+            editBtn.removeEventListener('click', editBtn._oldClickListener);
+        }
+        
         editBtn.innerHTML = `
             <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -2056,10 +2228,6 @@ function enableTaskEditMode(task) {
         editBtn.title = '저장';
         editBtn.style.backgroundColor = 'var(--success-500)';
         editBtn.style.color = 'white';
-        
-        // 기존 이벤트 리스너 제거 후 새로운 리스너 추가
-        editBtn.onclick = null;
-        editBtn.removeEventListener('click', editBtn._saveHandler);
         
         // 새로운 저장 핸들러 생성
         editBtn._saveHandler = function(e) {
@@ -2076,12 +2244,11 @@ function enableTaskEditMode(task) {
             });
         };
         
-        // 기존 이벤트 리스너가 있을 경우 제거 후 새로 추가
-        if (editBtn._oldClickListener) {
-            editBtn.removeEventListener('click', editBtn._oldClickListener);
-        }
-        editBtn._oldClickListener = editBtn._saveHandler;
+        // 새로운 이벤트 리스너 추가
         editBtn.addEventListener('click', editBtn._saveHandler);
+        
+        // 백업용 onclick도 설정
+        editBtn.onclick = editBtn._saveHandler;
     } else {
         console.error('편집 버튼을 찾을 수 없습니다.');
     }
