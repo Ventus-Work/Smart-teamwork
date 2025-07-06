@@ -2664,15 +2664,10 @@ async function loadTaskComments(taskId) {
                 type: typeof taskId
             });
             
-            // Supabase 댓글 조회 (profiles 테이블과 조인하여 사용자 이름도 가져오기)
+            // Supabase 댓글 조회 (created_by는 auth.users와 직접 연결됨)
             const { data, error } = await supabase
                 .from('comments')
-                .select(`
-                    *,
-                    profiles:created_by (
-                        full_name
-                    )
-                `)
+                .select('*')
                 .or(`todo_id.eq.${taskId},task_id.eq.${taskId}`)
                 .order('created_at', { ascending: false });
                 
@@ -2684,9 +2679,8 @@ async function loadTaskComments(taskId) {
             // 댓글 데이터 가공 (author_name 필드 추가)
             comments = (data || []).map(comment => ({
                 ...comment,
-                author_name: comment.profiles?.full_name || 
-                           (comment.created_by === currentUser?.id ? 
-                            currentUser?.user_metadata?.full_name : null) || 
+                author_name: comment.created_by === currentUser?.id ? 
+                           (currentUser?.user_metadata?.full_name || currentUser?.email || '나') : 
                            '사용자'
             }));
             
@@ -2835,12 +2829,7 @@ async function handleAddComment() {
             const { data, error } = await supabase
                 .from('comments')
                 .insert([commentData])
-                .select(`
-                    *,
-                    profiles:created_by (
-                        full_name
-                    )
-                `);
+                .select('*');
                 
             if (error) {
                 console.error('Supabase 댓글 추가 오류:', error);
@@ -2859,7 +2848,7 @@ async function handleAddComment() {
                     todo_id: savedComment.todo_id,
                     content: savedComment.content,
                     created_at: savedComment.created_at,
-                    author_name: savedComment.profiles?.full_name || currentUser?.user_metadata?.full_name || '사용자',
+                    author_name: currentUser?.user_metadata?.full_name || currentUser?.email || '사용자',
                     author_id: savedComment.created_by
                 };
                 currentComments.push(localComment);
@@ -3224,10 +3213,13 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('데모 버튼 요소:', demoBtn);
             if (demoBtn) {
                 console.log('데모 버튼 이벤트 리스너 재설정');
-                demoBtn.onclick = function() {
+                // 기존 이벤트 리스너 제거 후 재설정
+                demoBtn.removeEventListener('click', handleDemoMode);
+                demoBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
                     console.log('데모 버튼 클릭됨');
                     handleDemoMode();
-                };
+                });
             }
             
 
