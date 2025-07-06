@@ -2169,6 +2169,27 @@ async function saveTaskEdit(task) {
             }
         } else if (supabase) {
             console.log('Supabase에 작업 저장:', task.id, updateData);
+            
+            // workspace_id 추가 (현재 워크스페이스 정보)
+            if (currentWorkspace && currentWorkspace.id) {
+                updateData.workspace_id = currentWorkspace.id;
+            }
+            
+            // 날짜 형식 변환 (ISO 형식으로)
+            if (updateData.start_date && updateData.start_date !== '') {
+                updateData.start_date = new Date(updateData.start_date).toISOString();
+            } else {
+                updateData.start_date = null;
+            }
+            
+            if (updateData.due_date && updateData.due_date !== '') {
+                updateData.due_date = new Date(updateData.due_date).toISOString();
+            } else {
+                updateData.due_date = null;
+            }
+            
+            console.log('Supabase 업데이트 데이터 최종:', updateData);
+            
             const { data, error } = await supabase
                 .from('todos')
                 .update(updateData)
@@ -2177,11 +2198,13 @@ async function saveTaskEdit(task) {
                 
             if (error) {
                 console.error('Supabase 작업 저장 오류:', error);
+                showNotification(`작업 저장 오류: ${error.message}`, 'error');
                 throw error;
             }
             
-            console.log('Supabase 작업 저장 결과:', data);
+            console.log('Supabase 작업 저장 성공:', data);
             
+            // 로컬 데이터 업데이트
             const taskIndex = currentTasks.findIndex(t => t.id === task.id);
             if (taskIndex !== -1) {
                 Object.assign(currentTasks[taskIndex], updateData);
@@ -2641,49 +2664,34 @@ async function loadTaskComments(taskId) {
                 type: typeof taskId
             });
             
-            // 두 가지 방법으로 조회 시도 (todo_id와 task_id 모두 시도)
-            let data = [];
-            let error = null;
-            
-            // 1. 먼저 task_id로 조회
-            const taskResult = await supabase
+            // Supabase 댓글 조회 (profiles 테이블과 조인하여 사용자 이름도 가져오기)
+            const { data, error } = await supabase
                 .from('comments')
-                .select('*')
-                .eq('task_id', taskId)
+                .select(`
+                    *,
+                    profiles:created_by (
+                        full_name
+                    )
+                `)
+                .or(`todo_id.eq.${taskId},task_id.eq.${taskId}`)
                 .order('created_at', { ascending: false });
                 
-            if (taskResult.error) {
-                console.error('task_id로 댓글 로드 오류:', taskResult.error);
-                error = taskResult.error;
-            } else if (taskResult.data && taskResult.data.length > 0) {
-                // task_id로 찾았으면 그 결과 사용
-                data = taskResult.data;
-                console.log('task_id로 댓글 찾음:', data.length);
-            } else {
-                // 2. task_id로 찾지 못했으면 todo_id로 시도
-                console.log('task_id로 찾지 못해 todo_id로 시도합니다.');
-                const todoResult = await supabase
-                    .from('comments')
-                    .select('*')
-                    .eq('todo_id', taskId)
-                    .order('created_at', { ascending: false });
-                    
-                if (todoResult.error) {
-                    console.error('todo_id로 댓글 로드 오류:', todoResult.error);
-                    error = todoResult.error;
-                } else {
-                    data = todoResult.data || [];
-                    console.log('todo_id로 댓글 찾음:', data.length);
-                }
-            }
-            
-            // 최종 결과 처리
             if (error) {
+                console.error('Supabase 댓글 로드 오류:', error);
                 throw error;
             }
             
-            comments = data;
+            // 댓글 데이터 가공 (author_name 필드 추가)
+            comments = (data || []).map(comment => ({
+                ...comment,
+                author_name: comment.profiles?.full_name || 
+                           (comment.created_by === currentUser?.id ? 
+                            currentUser?.user_metadata?.full_name : null) || 
+                           '사용자'
+            }));
+            
             console.log('Supabase에서 로드된 댓글 수:', comments.length);
+            console.log('로드된 댓글 데이터:', comments);
         }
 
         renderTaskComments(comments);
@@ -2808,29 +2816,55 @@ async function handleAddComment() {
                 type: typeof currentTaskId
             });
             
-            // 두 필드 모두 설정 (todo_id와 task_id)
+            // Supabase 테이블 구조에 맞는 댓글 데이터 생성
             const commentData = {
-                todo_id: currentTaskId,  // 외래키로 설정된 필드
-                task_id: currentTaskId,  // 기존 필드도 유지
+                todo_id: currentTaskId,  // 필수 외래키
+                task_id: currentTaskId,  // 추가 참조 필드
                 content: content,
-                author_name: currentUser?.user_metadata?.full_name || '사용자',
-                author_id: currentUser?.id
+                created_by: currentUser?.id || null  // Supabase auth.users와 연결
             };
             
             console.log('Supabase에 저장할 댓글 데이터:', commentData);
+            console.log('현재 사용자 정보:', {
+                id: currentUser?.id,
+                email: currentUser?.email,
+                full_name: currentUser?.user_metadata?.full_name
+            });
             
             // Supabase에 저장
             const { data, error } = await supabase
                 .from('comments')
                 .insert([commentData])
-                .select();
+                .select(`
+                    *,
+                    profiles:created_by (
+                        full_name
+                    )
+                `);
                 
             if (error) {
                 console.error('Supabase 댓글 추가 오류:', error);
+                showNotification(`댓글 추가 오류: ${error.message}`, 'error');
                 throw error;
             }
             
             console.log('Supabase에 댓글 추가 성공:', data);
+            
+            // 로컬 댓글 목록에 추가 (UI 즉시 업데이트용)
+            if (data && data.length > 0) {
+                const savedComment = data[0];
+                const localComment = {
+                    id: savedComment.id,
+                    task_id: savedComment.task_id,
+                    todo_id: savedComment.todo_id,
+                    content: savedComment.content,
+                    created_at: savedComment.created_at,
+                    author_name: savedComment.profiles?.full_name || currentUser?.user_metadata?.full_name || '사용자',
+                    author_id: savedComment.created_by
+                };
+                currentComments.push(localComment);
+            }
+            
             showNotification('댓글이 추가되었습니다.', 'success');
         }
         
@@ -3001,27 +3035,68 @@ async function deleteProject(projectId) {
             localStorage.setItem('demo_projects', JSON.stringify(currentProjects));
             localStorage.setItem('demo_tasks', JSON.stringify(currentTasks));
         } else if (supabase) {
-            // 먼저 관련된 할 일들 삭제
+            console.log('Supabase에서 프로젝트 삭제 시작:', projectId);
+            
+            // workspace_id 조건 추가하여 보안 강화
+            const workspaceCondition = currentWorkspace && currentWorkspace.id ? 
+                { project_id: projectId, workspace_id: currentWorkspace.id } : 
+                { project_id: projectId };
+            
+            // 먼저 관련된 댓글들 삭제 (todos와 연관된)
+            const relatedTodos = currentTasks.filter(t => t.project_id === projectId);
+            for (const todo of relatedTodos) {
+                const { error: commentsError } = await supabase
+                    .from('comments')
+                    .delete()
+                    .eq('todo_id', todo.id);
+                    
+                if (commentsError) {
+                    console.error('댓글 삭제 오류:', commentsError);
+                    // 댓글 삭제 실패는 치명적이지 않으므로 계속 진행
+                }
+                
+                // task_id로도 삭제 시도
+                const { error: taskCommentsError } = await supabase
+                    .from('comments')
+                    .delete()
+                    .eq('task_id', todo.id);
+                    
+                if (taskCommentsError) {
+                    console.error('Task 댓글 삭제 오류:', taskCommentsError);
+                }
+            }
+            
+            // 관련된 할 일들 삭제
             const { error: tasksError } = await supabase
                 .from('todos')
                 .delete()
-                .eq('project_id', projectId);
+                .match(workspaceCondition);
                 
             if (tasksError) {
                 console.error('프로젝트 할 일 삭제 오류:', tasksError);
+                showNotification(`할 일 삭제 오류: ${tasksError.message}`, 'error');
                 throw tasksError;
             }
             
-            // 프로젝트 삭제
+            console.log('프로젝트 관련 할 일 삭제 완료');
+            
+            // 프로젝트 삭제 (workspace 조건 추가)
+            const projectDeleteCondition = currentWorkspace && currentWorkspace.id ? 
+                { id: projectId, workspace_id: currentWorkspace.id } : 
+                { id: projectId };
+                
             const { error: projectError } = await supabase
                 .from('projects')
                 .delete()
-                .eq('id', projectId);
+                .match(projectDeleteCondition);
                 
             if (projectError) {
                 console.error('프로젝트 삭제 오류:', projectError);
+                showNotification(`프로젝트 삭제 오류: ${projectError.message}`, 'error');
                 throw projectError;
             }
+            
+            console.log('프로젝트 삭제 완료');
             
             // 로컬 데이터 업데이트
             currentProjects = currentProjects.filter(p => p.id !== projectId);
