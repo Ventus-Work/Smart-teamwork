@@ -629,6 +629,19 @@ function renderListView() {
 
 // 이벤트 리스너 설정
 function setupEventListeners() {
+    // 대시보드 통계 카드 클릭 이벤트 설정
+    const statsCards = document.querySelectorAll('.stats-card[data-filter]');
+    statsCards.forEach(card => {
+        const filterType = card.getAttribute('data-filter');
+        if (filterType) {
+            // 인라인 onclick 속성을 제거하고 이벤트 리스너로 대체
+            card.removeAttribute('onclick');
+            card.addEventListener('click', function() {
+                handleStatsCardClick(filterType);
+            });
+        }
+    });
+    
     // 캘린더 뷰 전환 버튼들
     const monthViewBtn = document.getElementById('monthViewBtn');
     const weekViewBtn = document.getElementById('weekViewBtn');
