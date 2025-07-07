@@ -3,18 +3,633 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Teamwork - 협업 할 일 관리</title>
-    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 환경 설정 파일은 개발 환경에서만 로드 (Vercel에서는 환경변수 사용) -->
-    <script>
-        // 개발 환경에서만 env.js 로드
-        if (window.location.hostname === 'localhost' || window.location.protocol === 'file:') {
-            const script = document.createElement('script');
-            script.src = './env.js';
-            script.onerror = () => {
-                console.warn('env.js 파일을 찾을 수 없습니다. 데모 모드 또는 환경변수를 사용합니다.');
-            };
-            document.head.appendChild(script);
-        }
-    </script>
+    <title>Smart Teamwork - 똑똑한 협업 솔루션</title>
+    
+    <!-- CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Supabase -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <!-- Meta Tags for SEO -->
+    <meta name="description" content="소규모 팀을 위한 스마트한 협업 할 일 관리 플랫폼. 실시간 대시보드, 댓글 기능, 프로젝트 관리를 한 번에!">
+    <meta name="keywords" content="팀워크, 협업, 할일관리, 프로젝트관리, 대시보드">
+    <meta name="author" content="Smart Teamwork">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Smart Teamwork - 똑똑한 협업 솔루션">
+    <meta property="og:description" content="소규모 팀을 위한 스마트한 협업 할 일 관리 플랫폼">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="./screenshot_8168.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="./favicon.ico">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen">
+    <!-- 로딩 오버레이 -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Smart Teamwork 로딩 중...</p>
+    </div>
+
+    <!-- 로그인 화면 -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="login-container">
+            <div class="text-center mb-8">
+                <div class="logo-container mb-6">
+                    <i class="fas fa-users text-6xl text-blue-600 mb-4"></i>
+                    <h1 class="text-4xl font-bold text-gray-800 mb-2">Smart Teamwork</h1>
+                    <p class="text-lg text-gray-600">똑똑한 협업 솔루션</p>
+                </div>
+                
+                <div class="features-preview">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                        <div class="feature-card">
+                            <i class="fas fa-chart-pie text-2xl text-blue-500 mb-2"></i>
+                            <h3 class="font-semibold text-gray-700">실시간 대시보드</h3>
+                            <p class="text-sm text-gray-500">팀 진행상황을 한눈에</p>
+                        </div>
+                        <div class="feature-card">
+                            <i class="fas fa-comments text-2xl text-green-500 mb-2"></i>
+                            <h3 class="font-semibold text-gray-700">실시간 댓글</h3>
+                            <p class="text-sm text-gray-500">할 일별 소통 채널</p>
+                        </div>
+                        <div class="feature-card">
+                            <i class="fas fa-calendar text-2xl text-purple-500 mb-2"></i>
+                            <h3 class="font-semibold text-gray-700">스마트 캘린더</h3>
+                            <p class="text-sm text-gray-500">마감일 한눈에 관리</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="login-buttons">
+                <button id="googleLogin" class="login-btn primary">
+                    <i class="fab fa-google mr-2"></i>
+                    Google로 시작하기
+                </button>
+                
+                <div class="divider">
+                    <span>또는</span>
+                </div>
+                
+                <button id="demoLogin" class="login-btn secondary">
+                    <i class="fas fa-play mr-2"></i>
+                    데모 체험하기
+                </button>
+            </div>
+            
+            <div class="text-center mt-6 text-sm text-gray-500">
+                <p>🚀 10명 내외 소규모 팀에 최적화된 협업 플랫폼</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메인 애플리케이션 -->
+    <div id="app" class="hidden">
+        <!-- 상단 네비게이션 -->
+        <nav class="navbar">
+            <div class="container mx-auto px-4">
+                <div class="flex items-center justify-between h-16">
+                    <!-- 로고 -->
+                    <div class="navbar-brand">
+                        <i class="fas fa-users text-2xl text-blue-600 mr-2"></i>
+                        <span class="text-xl font-bold text-gray-800">Smart Teamwork</span>
+                        <span id="demoIndicator" class="demo-badge hidden">데모모드</span>
+                    </div>
+                    
+                    <!-- 네비게이션 메뉴 -->
+                    <div class="nav-menu">
+                        <button id="dashboardBtn" class="nav-btn active">
+                            <i class="fas fa-chart-pie mr-2"></i>대시보드
+                        </button>
+                        <button id="calendarBtn" class="nav-btn">
+                            <i class="fas fa-calendar mr-2"></i>캘린더
+                        </button>
+                    </div>
+                    
+                    <!-- 사용자 프로필 -->
+                    <div class="user-profile">
+                        <div class="user-info">
+                            <img id="userAvatar" src="default-avatar.png" alt="사용자 아바타" class="user-avatar">
+                            <span id="userName" class="user-name">사용자</span>
+                        </div>
+                        <button id="logoutBtn" class="logout-btn">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 메인 컨텐츠 영역 -->
+        <main class="main-content">
+            <div class="container mx-auto px-4 py-6">
+                <!-- 대시보드 뷰 -->
+                <div id="dashboardView" class="view active">
+                    <!-- 대시보드 헤더 -->
+                    <div class="dashboard-header">
+                        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                            <div>
+                                <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                                    팀 대시보드 <i class="fas fa-chart-line text-blue-600"></i>
+                                </h1>
+                                <p class="text-gray-600">팀의 진행상황을 실시간으로 확인하세요</p>
+                            </div>
+                            
+                            <!-- 빠른 액션 버튼들 -->
+                            <div class="quick-actions">
+                                <button id="addProjectBtn" class="action-btn primary">
+                                    <i class="fas fa-plus mr-2"></i>프로젝트 추가
+                                </button>
+                                <button id="addTodoBtn" class="action-btn secondary">
+                                    <i class="fas fa-tasks mr-2"></i>할 일 추가
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 통계 카드들 -->
+                    <div class="stats-grid">
+                        <div class="stat-card primary">
+                            <div class="stat-header">
+                                <i class="fas fa-list-check stat-icon"></i>
+                                <span class="stat-label">전체 할 일</span>
+                            </div>
+                            <div class="stat-value" id="totalTodos">0</div>
+                            <div class="stat-change positive">
+                                <i class="fas fa-arrow-up"></i>
+                                <span>이번 주</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card warning">
+                            <div class="stat-header">
+                                <i class="fas fa-clock stat-icon"></i>
+                                <span class="stat-label">진행 중</span>
+                            </div>
+                            <div class="stat-value" id="inProgressTodos">0</div>
+                            <div class="stat-change">
+                                <i class="fas fa-minus"></i>
+                                <span>변동 없음</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card success">
+                            <div class="stat-header">
+                                <i class="fas fa-check-circle stat-icon"></i>
+                                <span class="stat-label">완료</span>
+                            </div>
+                            <div class="stat-value" id="completedTodos">0</div>
+                            <div class="stat-change positive">
+                                <i class="fas fa-arrow-up"></i>
+                                <span>+5 오늘</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card info">
+                            <div class="stat-header">
+                                <i class="fas fa-hourglass-half stat-icon"></i>
+                                <span class="stat-label">대기 중</span>
+                            </div>
+                            <div class="stat-value" id="pendingTodos">0</div>
+                            <div class="stat-change neutral">
+                                <i class="fas fa-pause"></i>
+                                <span>검토 필요</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 메인 콘텐츠 그리드 -->
+                    <div class="content-grid">
+                        <!-- 왼쪽: 필터 및 컨트롤 -->
+                        <div class="sidebar">
+                            <!-- 프로젝트 관리 섹션 -->
+                            <div class="control-section">
+                                <div class="section-header">
+                                    <h3 class="section-title">
+                                        <i class="fas fa-folder-open mr-2"></i>프로젝트
+                                    </h3>
+                                    <button id="toggleProjectManager" class="toggle-btn">
+                                        <i class="fas fa-chevron-down"></i>
+                                    </button>
+                                </div>
+                                <div id="projectManager" class="section-content">
+                                    <div id="projectsList" class="projects-list">
+                                        <!-- 프로젝트 목록이 여기에 동적으로 추가됩니다 -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 필터 섹션 -->
+                            <div class="control-section">
+                                <div class="section-header">
+                                    <h3 class="section-title">
+                                        <i class="fas fa-filter mr-2"></i>필터
+                                    </h3>
+                                    <button id="clearFilters" class="clear-btn">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="section-content">
+                                    <!-- 상태 필터 -->
+                                    <div class="filter-group">
+                                        <label class="filter-label">상태별 필터</label>
+                                        <div class="filter-options">
+                                            <label class="filter-option">
+                                                <input type="checkbox" id="filterPending" checked>
+                                                <span class="checkmark pending"></span>
+                                                <span>대기중</span>
+                                            </label>
+                                            <label class="filter-option">
+                                                <input type="checkbox" id="filterInProgress" checked>
+                                                <span class="checkmark in-progress"></span>
+                                                <span>진행중</span>
+                                            </label>
+                                            <label class="filter-option">
+                                                <input type="checkbox" id="filterCompleted" checked>
+                                                <span class="checkmark completed"></span>
+                                                <span>완료</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- 우선순위 필터 -->
+                                    <div class="filter-group">
+                                        <label class="filter-label">우선순위별 필터</label>
+                                        <div class="filter-options">
+                                            <label class="filter-option">
+                                                <input type="checkbox" id="filterHigh" checked>
+                                                <span class="checkmark high"></span>
+                                                <span>높음</span>
+                                            </label>
+                                            <label class="filter-option">
+                                                <input type="checkbox" id="filterMedium" checked>
+                                                <span class="checkmark medium"></span>
+                                                <span>보통</span>
+                                            </label>
+                                            <label class="filter-option">
+                                                <input type="checkbox" id="filterLow" checked>
+                                                <span class="checkmark low"></span>
+                                                <span>낮음</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- 프로젝트 필터 -->
+                                    <div class="filter-group">
+                                        <label class="filter-label">프로젝트별 필터</label>
+                                        <select id="projectFilter" class="filter-select">
+                                            <option value="">모든 프로젝트</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 검색 섹션 -->
+                            <div class="control-section">
+                                <div class="section-header">
+                                    <h3 class="section-title">
+                                        <i class="fas fa-search mr-2"></i>검색
+                                    </h3>
+                                </div>
+                                <div class="section-content">
+                                    <div class="search-box">
+                                        <input type="text" id="searchInput" placeholder="할 일 제목으로 검색..." class="search-input">
+                                        <i class="fas fa-search search-icon"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 오른쪽: 할 일 목록 -->
+                        <div class="main-panel">
+                            <div class="panel-header">
+                                <h2 class="panel-title">
+                                    <i class="fas fa-tasks mr-2"></i>할 일 목록
+                                </h2>
+                                <div class="view-controls">
+                                    <button id="sortBtn" class="control-btn">
+                                        <i class="fas fa-sort mr-1"></i>정렬
+                                    </button>
+                                    <button id="refreshBtn" class="control-btn">
+                                        <i class="fas fa-sync-alt mr-1"></i>새로고침
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="todosList" class="todos-list">
+                                <!-- 할 일 목록이 여기에 동적으로 추가됩니다 -->
+                                <div class="empty-state">
+                                    <i class="fas fa-clipboard-list text-6xl text-gray-300 mb-4"></i>
+                                    <h3 class="text-xl font-semibold text-gray-500 mb-2">아직 할 일이 없어요</h3>
+                                    <p class="text-gray-400 mb-4">새로운 할 일을 추가해보세요!</p>
+                                    <button id="addFirstTodo" class="btn btn-primary">
+                                        <i class="fas fa-plus mr-2"></i>첫 번째 할 일 추가
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 캘린더 뷰 -->
+                <div id="calendarView" class="view">
+                    <div class="calendar-header">
+                        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                            <div>
+                                <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                                    스마트 캘린더 <i class="fas fa-calendar-alt text-purple-600"></i>
+                                </h1>
+                                <p class="text-gray-600">마감일과 일정을 한눈에 확인하세요</p>
+                            </div>
+                            
+                            <div class="calendar-controls">
+                                <button id="prevMonth" class="calendar-nav-btn">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <span id="currentMonth" class="calendar-month-title">2024년 1월</span>
+                                <button id="nextMonth" class="calendar-nav-btn">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="calendar-container">
+                        <div id="calendar" class="calendar-grid">
+                            <!-- 요일 헤더 -->
+                            <div class="calendar-header-row">
+                                <div class="calendar-day-header">일</div>
+                                <div class="calendar-day-header">월</div>
+                                <div class="calendar-day-header">화</div>
+                                <div class="calendar-day-header">수</div>
+                                <div class="calendar-day-header">목</div>
+                                <div class="calendar-day-header">금</div>
+                                <div class="calendar-day-header">토</div>
+                            </div>
+                            <!-- 달력 날짜들이 여기에 동적으로 추가됩니다 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 할 일 상세 모달 -->
+    <div id="todoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle" class="modal-title">할 일 상세</h2>
+                <button id="closeModal" class="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="modal-section">
+                    <label class="modal-label">제목</label>
+                    <span id="taskDetailTitle" class="modal-value"></span>
+                </div>
+                
+                <div class="modal-section">
+                    <label class="modal-label">설명</label>
+                    <span id="taskDetailDescription" class="modal-value"></span>
+                </div>
+                
+                <div class="modal-grid">
+                    <div class="modal-section">
+                        <label class="modal-label">상태</label>
+                        <div style="position: relative; display: inline-block;" id="statusDropdownContainer">
+                            <span id="taskDetailStatus" class="btn btn-warning btn-sm status-clickable"></span>
+                            <div id="statusDropdown" class="status-dropdown" style="display: none;">
+                                <div class="dropdown-item" data-status="pending">
+                                    <span class="status-badge status-pending">대기중</span>
+                                </div>
+                                <div class="dropdown-item" data-status="in_progress">
+                                    <span class="status-badge status-in-progress">진행중</span>
+                                </div>
+                                <div class="dropdown-item" data-status="completed">
+                                    <span class="status-badge status-completed">완료</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-section">
+                        <label class="modal-label">우선순위</label>
+                        <span id="taskDetailPriority" class="priority-badge"></span>
+                    </div>
+                    
+                    <div class="modal-section">
+                        <label class="modal-label">프로젝트</label>
+                        <span id="taskDetailProject" class="project-badge"></span>
+                    </div>
+                    
+                    <div class="modal-section">
+                        <label class="modal-label">마감일</label>
+                        <span id="taskDetailDueDate" class="modal-value"></span>
+                    </div>
+                </div>
+                
+                <div class="modal-section">
+                    <label class="modal-label">생성일</label>
+                    <span id="taskDetailCreatedAt" class="modal-value text-gray-500"></span>
+                </div>
+
+                <!-- 댓글 섹션 -->
+                <div class="modal-section">
+                    <div class="comments-header">
+                        <label class="modal-label">
+                            <i class="fas fa-comments mr-2"></i>댓글
+                        </label>
+                        <span id="commentsCount" class="comments-count">0개</span>
+                    </div>
+                    
+                    <!-- 댓글 입력 -->
+                    <div class="comment-input-section">
+                        <div class="comment-input-container">
+                            <textarea id="commentInput" 
+                                    placeholder="댓글을 입력하세요..." 
+                                    class="comment-input"
+                                    rows="2"></textarea>
+                            <button id="addCommentBtn" class="comment-submit-btn">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 댓글 목록 -->
+                    <div id="commentsList" class="comments-list">
+                        <!-- 댓글들이 여기에 동적으로 추가됩니다 -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button id="editTodoBtn" class="btn btn-primary">
+                    <i class="fas fa-edit mr-2"></i>수정
+                </button>
+                <button id="deleteTodoBtn" class="btn btn-danger">
+                    <i class="fas fa-trash mr-2"></i>삭제
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 할 일 추가/수정 모달 -->
+    <div id="todoFormModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="formModalTitle" class="modal-title">새 할 일 추가</h2>
+                <button id="closeTodoFormModal" class="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <form id="todoForm">
+                    <div class="form-group">
+                        <label for="todoTitle" class="form-label">제목 *</label>
+                        <input type="text" id="todoTitle" class="form-input" placeholder="할 일 제목을 입력하세요" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="todoDescription" class="form-label">설명</label>
+                        <textarea id="todoDescription" class="form-textarea" placeholder="상세 설명을 입력하세요" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="todoStatus" class="form-label">상태</label>
+                            <select id="todoStatus" class="form-select">
+                                <option value="pending">대기중</option>
+                                <option value="in_progress">진행중</option>
+                                <option value="completed">완료</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="todoPriority" class="form-label">우선순위</label>
+                            <select id="todoPriority" class="form-select">
+                                <option value="low">낮음</option>
+                                <option value="medium">보통</option>
+                                <option value="high">높음</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="todoProject" class="form-label">프로젝트</label>
+                            <select id="todoProject" class="form-select">
+                                <option value="">프로젝트 선택</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="todoDueDate" class="form-label">마감일</label>
+                            <input type="date" id="todoDueDate" class="form-input">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" id="cancelTodoForm" class="btn btn-secondary">취소</button>
+                <button type="submit" form="todoForm" id="saveTodoBtn" class="btn btn-primary">
+                    <i class="fas fa-save mr-2"></i>저장
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 프로젝트 추가/수정 모달 -->
+    <div id="projectFormModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="projectFormModalTitle" class="modal-title">새 프로젝트 추가</h2>
+                <button id="closeProjectFormModal" class="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <form id="projectForm">
+                    <div class="form-group">
+                        <label for="projectName" class="form-label">프로젝트 이름 *</label>
+                        <input type="text" id="projectName" class="form-input" placeholder="프로젝트 이름을 입력하세요" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="projectDescription" class="form-label">설명</label>
+                        <textarea id="projectDescription" class="form-textarea" placeholder="프로젝트 설명을 입력하세요" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="projectColor" class="form-label">색상</label>
+                        <div class="color-picker">
+                            <div class="color-options">
+                                <div class="color-option" data-color="#3B82F6" style="background: #3B82F6;"></div>
+                                <div class="color-option" data-color="#10B981" style="background: #10B981;"></div>
+                                <div class="color-option" data-color="#F59E0B" style="background: #F59E0B;"></div>
+                                <div class="color-option" data-color="#EF4444" style="background: #EF4444;"></div>
+                                <div class="color-option" data-color="#8B5CF6" style="background: #8B5CF6;"></div>
+                                <div class="color-option" data-color="#06B6D4" style="background: #06B6D4;"></div>
+                                <div class="color-option" data-color="#84CC16" style="background: #84CC16;"></div>
+                                <div class="color-option" data-color="#F97316" style="background: #F97316;"></div>
+                            </div>
+                            <input type="hidden" id="projectColor" value="#3B82F6">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" id="cancelProjectForm" class="btn btn-secondary">취소</button>
+                <button type="submit" form="projectForm" id="saveProjectBtn" class="btn btn-primary">
+                    <i class="fas fa-save mr-2"></i>저장
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 확인 모달 -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2 id="confirmModalTitle" class="modal-title">확인</h2>
+                <button id="closeConfirmModal" class="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <p id="confirmModalMessage" class="confirm-message"></p>
+            </div>
+            
+            <div class="modal-footer">
+                <button id="confirmCancel" class="btn btn-secondary">취소</button>
+                <button id="confirmOk" class="btn btn-danger">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 알림 토스트 -->
+    <div id="toast" class="toast">
+        <div class="toast-content">
+            <i id="toastIcon" class="toast-icon"></i>
+            <span id="toastMessage" class="toast-message"></span>
+        </div>
+        <button id="closeToast" class="toast-close">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="env.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
