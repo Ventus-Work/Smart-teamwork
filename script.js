@@ -716,6 +716,19 @@ function setupEventListeners() {
     if (refreshCommentsBtn) {
         refreshCommentsBtn.addEventListener('click', handleRefreshComments);
     }
+    
+    // 진행률 슬라이더 및 입력 필드 이벤트
+    const progressSlider = document.getElementById('progressSlider');
+    const progressInput = document.getElementById('progressInput');
+    
+    if (progressSlider) {
+        progressSlider.addEventListener('input', handleProgressSliderChange);
+    }
+    
+    if (progressInput) {
+        progressInput.addEventListener('input', handleProgressInputChange);
+        progressInput.addEventListener('blur', handleProgressInputBlur);
+    }
 
     // 캘린더 네비게이션 버튼들
     const calendarPrevBtn = document.querySelector('#calendarView .calendar-controls button:first-child');
@@ -3265,6 +3278,12 @@ function populateTaskDetailModal(task) {
         assigneeElement.textContent = task.assignee || (currentUser?.user_metadata?.full_name || '담당자 없음');
     }
 
+    // 진행률 정보 업데이트
+    const taskProgress = task.progress !== undefined ? task.progress : 0;
+    updateProgressDisplay(taskProgress);
+    updateProgressSlider(taskProgress);
+    updateProgressInput(taskProgress);
+
     // 댓글 로드
     loadTaskComments(task.id);
     console.log('작업 상세 모달 데이터 채우기 완료');
@@ -3758,6 +3777,167 @@ function updateTaskDetailStatus(status) {
     statusElement.textContent = config.text;
     // 스타일 적용
     statusElement.setAttribute('style', config.style);
+}
+
+// 진행률 슬라이더 변경 처리
+function handleProgressSliderChange(event) {
+    const value = parseInt(event.target.value);
+    updateProgressDisplay(value);
+    updateProgressInput(value);
+    
+    // 디바운스를 위한 타이머 클리어 및 설정
+    if (window.progressUpdateTimer) {
+        clearTimeout(window.progressUpdateTimer);
+    }
+    
+    window.progressUpdateTimer = setTimeout(() => {
+        saveProgressChange(value);
+    }, 500); // 500ms 후 저장
+}
+
+// 진행률 입력 필드 변경 처리
+function handleProgressInputChange(event) {
+    let value = parseInt(event.target.value);
+    
+    // 범위 검증
+    if (isNaN(value)) value = 0;
+    if (value < 0) value = 0;
+    if (value > 100) value = 100;
+    
+    updateProgressDisplay(value);
+    updateProgressSlider(value);
+}
+
+// 진행률 입력 필드 포커스 아웃 처리
+function handleProgressInputBlur(event) {
+    let value = parseInt(event.target.value);
+    
+    // 범위 검증 및 수정
+    if (isNaN(value)) value = 0;
+    if (value < 0) value = 0;
+    if (value > 100) value = 100;
+    
+    // 입력 필드 값 보정
+    event.target.value = value;
+    
+    updateProgressDisplay(value);
+    updateProgressSlider(value);
+    saveProgressChange(value);
+}
+
+// 진행률 표시 업데이트
+function updateProgressDisplay(progress) {
+    const progressPercentage = document.getElementById('progressPercentage');
+    const progressStatus = document.getElementById('progressStatus');
+    const progressBar = document.getElementById('progressBar');
+    
+    if (progressPercentage) {
+        progressPercentage.textContent = `${progress}%`;
+    }
+    
+    if (progressBar) {
+        progressBar.style.width = `${progress}%`;
+        
+        // 진행률에 따른 색상 변경
+        if (progress === 0) {
+            progressBar.style.backgroundColor = 'var(--neutral-400)';
+        } else if (progress === 100) {
+            progressBar.style.backgroundColor = 'var(--success-500)';
+        } else {
+            progressBar.style.backgroundColor = 'var(--primary-500)';
+        }
+    }
+    
+    if (progressStatus) {
+        let statusText = '시작 전';
+        if (progress > 0 && progress < 100) {
+            statusText = '진행중';
+        } else if (progress === 100) {
+            statusText = '완료';
+        }
+        progressStatus.textContent = statusText;
+    }
+}
+
+// 진행률 슬라이더 업데이트
+function updateProgressSlider(value) {
+    const progressSlider = document.getElementById('progressSlider');
+    if (progressSlider) {
+        progressSlider.value = value;
+    }
+}
+
+// 진행률 입력 필드 업데이트
+function updateProgressInput(value) {
+    const progressInput = document.getElementById('progressInput');
+    if (progressInput) {
+        progressInput.value = value;
+    }
+}
+
+// 진행률 변경 저장
+async function saveProgressChange(progress) {
+    if (!currentTaskId) {
+        console.error('현재 작업 ID가 없습니다.');
+        return;
+    }
+    
+    const task = currentTasks.find(t => t.id === currentTaskId);
+    if (!task) {
+        console.error('현재 작업을 찾을 수 없습니다.');
+        return;
+    }
+    
+    try {
+        console.log('진행률 변경 저장:', progress);
+        
+        if (isDemoMode) {
+            // 데모 모드에서 진행률 저장
+            const taskIndex = currentTasks.findIndex(t => t.id === currentTaskId);
+            if (taskIndex !== -1) {
+                currentTasks[taskIndex].progress = progress;
+                currentTasks[taskIndex].updated_at = new Date().toISOString();
+                localStorage.setItem('demo_tasks', JSON.stringify(currentTasks));
+                console.log('데모 모드에서 진행률 저장 완료');
+            }
+        } else {
+            // Supabase에서 진행률 저장
+            const { error } = await supabase
+                .from('todos')
+                .update({ 
+                    progress: progress,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', currentTaskId);
+                
+            if (error) {
+                console.error('Supabase 진행률 업데이트 실패:', error);
+                showNotification('진행률 저장에 실패했습니다.', 'error');
+                return;
+            }
+            
+            // 로컬 데이터도 업데이트
+            const taskIndex = currentTasks.findIndex(t => t.id === currentTaskId);
+            if (taskIndex !== -1) {
+                currentTasks[taskIndex].progress = progress;
+                currentTasks[taskIndex].updated_at = new Date().toISOString();
+            }
+            
+            console.log('Supabase에서 진행률 저장 완료');
+        }
+        
+        // 대시보드 새로고침 (진행률이 프로젝트 통계에 영향을 줄 수 있음)
+        updateDashboard();
+        if (currentView === 'calendar') {
+            renderCalendar();
+        }
+        
+        showNotification('진행률이 업데이트되었습니다.', 'success');
+        
+    } catch (error) {
+        console.error('진행률 저장 실패:', error);
+        showNotification('진행률 저장에 실패했습니다.', 'error');
+    }
 }
 
 // 댓글 새로고침 처리 함수

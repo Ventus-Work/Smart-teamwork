@@ -902,12 +902,25 @@
                             <div style="margin-bottom: var(--space-3);">
                                 <label style="font-size: var(--text-sm); color: var(--text-tertiary); display: block; margin-bottom: var(--space-2);">진행률</label>
                                 <div style="background-color: var(--bg-primary); border-radius: var(--radius-md); padding: var(--space-3); border: 1px solid var(--border-primary);">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2);">
-                                        <span style="font-size: var(--text-lg); font-weight: var(--font-semibold); color: var(--text-primary);">50%</span>
-                                        <span style="font-size: var(--text-sm); color: var(--text-tertiary);">진행중</span>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+                                        <span id="progressPercentage" style="font-size: var(--text-lg); font-weight: var(--font-semibold); color: var(--text-primary);">50%</span>
+                                        <span id="progressStatus" style="font-size: var(--text-sm); color: var(--text-tertiary);">진행중</span>
                                     </div>
-                                    <div style="width: 100%; height: 0.5rem; background-color: var(--neutral-200); border-radius: var(--radius-sm);">
-                                        <div style="width: 50%; height: 100%; background-color: var(--primary-500); border-radius: var(--radius-sm); transition: width 0.3s ease;"></div>
+                                    
+                                    <!-- 진행률 바 -->
+                                    <div style="width: 100%; height: 0.5rem; background-color: var(--neutral-200); border-radius: var(--radius-sm); margin-bottom: var(--space-3);">
+                                        <div id="progressBar" style="width: 50%; height: 100%; background-color: var(--primary-500); border-radius: var(--radius-sm); transition: width 0.3s ease;"></div>
+                                    </div>
+                                    
+                                    <!-- 진행률 설정 컨트롤 -->
+                                    <div style="display: flex; align-items: center; gap: var(--space-3);">
+                                        <input type="range" id="progressSlider" min="0" max="100" value="50" 
+                                               style="flex: 1; height: 6px; background: var(--neutral-200); border-radius: 3px; outline: none; -webkit-appearance: none;">
+                                        <div style="display: flex; align-items: center; gap: var(--space-1);">
+                                            <input type="number" id="progressInput" min="0" max="100" value="50" 
+                                                   style="width: 60px; padding: var(--space-1) var(--space-2); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); font-size: var(--text-sm); text-align: center;">
+                                            <span style="font-size: var(--text-sm); color: var(--text-tertiary);">%</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
