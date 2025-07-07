@@ -428,70 +428,158 @@ function switchCalendarView(viewType) {
 
 // 주간 뷰 렌더링
 function renderWeekView() {
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // 일요일로 설정
+    // 현재 선택된 날짜를 기준으로 한 주간 계산
+    const selectedDate = new Date(currentDate);
+    const startOfWeek = new Date(selectedDate);
+    startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay()); // 일요일로 설정
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // 토요일까지
     
     const calendarContainer = document.getElementById('calendarContainer');
     if (!calendarContainer) return;
     
+    // 주간 헤더 업데이트
+    const monthYearDisplay = document.querySelector('#calendarView .calendar-controls h3');
+    if (monthYearDisplay) {
+        monthYearDisplay.textContent = `${startOfWeek.getFullYear()}년 ${startOfWeek.getMonth() + 1}월 ${startOfWeek.getDate()}일 - ${endOfWeek.getDate()}일`;
+    }
+    
     let weekHTML = `
         <!-- 요일 헤더 -->
-        <div style="display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--border-primary);">
-            <div style="padding: var(--space-2); text-align: center; font-weight: var(--font-medium); color: var(--error-600);">일</div>
-            <div style="padding: var(--space-2); text-align: center; font-weight: var(--font-medium);">월</div>
-            <div style="padding: var(--space-2); text-align: center; font-weight: var(--font-medium);">화</div>
-            <div style="padding: var(--space-2); text-align: center; font-weight: var(--font-medium);">수</div>
-            <div style="padding: var(--space-2); text-align: center; font-weight: var(--font-medium);">목</div>
-            <div style="padding: var(--space-2); text-align: center; font-weight: var(--font-medium);">금</div>
-            <div style="padding: var(--space-2); text-align: center; font-weight: var(--font-medium); color: var(--primary-600);">토</div>
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 2px solid var(--border-primary); background-color: var(--bg-secondary);">
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); color: var(--error-600); border-right: 1px solid var(--border-primary);">일요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); border-right: 1px solid var(--border-primary);">월요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); border-right: 1px solid var(--border-primary);">화요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); border-right: 1px solid var(--border-primary);">수요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); border-right: 1px solid var(--border-primary);">목요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); border-right: 1px solid var(--border-primary);">금요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); color: var(--primary-600);">토요일</div>
         </div>
         <!-- 주간 뷰 -->
-        <div style="display: grid; grid-template-columns: repeat(7, 1fr);">`;
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); min-height: 400px;">`;
     
     for (let i = 0; i < 7; i++) {
         const currentDay = new Date(startOfWeek);
         currentDay.setDate(startOfWeek.getDate() + i);
+        const today = new Date();
         const isToday = currentDay.toDateString() === today.toDateString();
         const dayNum = currentDay.getDate();
+        const monthName = currentDay.getMonth() + 1;
         
-        // 해당 날짜의 할 일 찾기
+        // 해당 날짜의 할 일 찾기 (마감일 + 범위 내 태스크)
         const dayTasks = currentTasks.filter(task => {
             if (!task.due_date) return false;
             const taskDate = new Date(task.due_date);
             return taskDate.toDateString() === currentDay.toDateString();
         });
         
+        const rangeInTasks = currentTasks.filter(task => {
+            const startDate = task.start_date ? new Date(task.start_date) : null;
+            const dueDate = task.due_date ? new Date(task.due_date) : null;
+            const currentDate = new Date(currentDay);
+            currentDate.setHours(0, 0, 0, 0);
+            
+            if (startDate && dueDate) {
+                startDate.setHours(0, 0, 0, 0);
+                dueDate.setHours(0, 0, 0, 0);
+                return currentDate >= startDate && currentDate <= dueDate;
+            } else if (dueDate) {
+                dueDate.setHours(0, 0, 0, 0);
+                return currentDate.getTime() === dueDate.getTime();
+            }
+            return false;
+        });
+        
+        const allDayTasks = [...new Set([...dayTasks, ...rangeInTasks])]; // 중복 제거
+        
         let dayColor = '';
+        let bgColor = 'background-color: var(--bg-card);';
         if (i === 0) dayColor = 'color: var(--error-600);'; // 일요일
         else if (i === 6) dayColor = 'color: var(--primary-600);'; // 토요일
-        else dayColor = 'color: var(--text-tertiary);'; // 평일
+        else dayColor = 'color: var(--text-primary);'; // 평일
+        
+        if (isToday) {
+            bgColor = 'background-color: var(--primary-50); border: 2px solid var(--primary-200);';
+        }
         
         weekHTML += `
-            <div class="calendar-day" data-date="${currentDay.toISOString().split('T')[0]}"
-                 style="min-height: 120px; padding: var(--space-2); ${i < 6 ? 'border-right: 1px solid var(--border-primary);' : ''} ${dayColor}">
-                <div style="display: flex; justify-content: space-between; margin-bottom: var(--space-2);">
-                    <span style="font-weight: var(--font-semibold); font-size: var(--text-lg);">${dayNum}</span>
-                    ${isToday ? '<span class="today-marker">오늘</span>' : ''}
-                </div>`;
+            <div class="calendar-day week-day" data-date="${currentDay.toISOString().split('T')[0]}"
+                 style="min-height: 400px; padding: var(--space-3); ${i < 6 ? 'border-right: 1px solid var(--border-primary);' : ''} ${dayColor} ${bgColor} cursor: pointer; position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); border-bottom: 1px solid var(--border-secondary); padding-bottom: var(--space-2);">
+                    <div style="display: flex; flex-direction: column; align-items: center;">
+                        <span style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-1);">${monthName}월</span>
+                        <span style="font-weight: var(--font-bold); font-size: var(--text-2xl); ${isToday ? 'color: var(--primary-600);' : ''}">${dayNum}</span>
+                    </div>
+                    ${isToday ? '<span class="today-marker" style="background-color: var(--primary-500); color: white; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 600;">오늘</span>' : ''}
+                </div>
                 
-        // 할일을 동그라미로 표시
-        dayTasks.forEach(task => {
+                <div style="display: flex; flex-direction: column; gap: var(--space-2);">`;
+                
+        // 할일들을 카드 형태로 표시
+        allDayTasks.slice(0, 8).forEach(task => { // 최대 8개까지 표시
             const project = currentProjects.find(p => p.id === task.project_id);
             const projectColor = project ? project.color : '#3B82F6';
+            const projectName = project ? project.name : '기본 프로젝트';
+            
+            // 마감일인지 범위 내인지 구분
+            const isDueDate = dayTasks.some(t => t.id === task.id);
+            const statusColor = getStatusColor(task.status);
+            const priorityIcon = getPriorityIcon(task.priority);
+            
+            const taskCardStyle = isDueDate 
+                ? `background: linear-gradient(135deg, ${projectColor}15, ${projectColor}05); border-left: 4px solid ${projectColor}; border: 1px solid ${projectColor}40;`
+                : `background: linear-gradient(135deg, ${projectColor}08, ${projectColor}02); border-left: 3px solid ${projectColor}60; border: 1px solid ${projectColor}20;`;
             
             weekHTML += `
-                <div style="display: flex; align-items: center; gap: var(--space-1); margin-bottom: var(--space-1);">
-                    <div class="task-dot" style="width: 8px; height: 8px; background-color: ${projectColor}; border-radius: 50%; flex-shrink: 0;"></div>
-                    <span style="font-size: var(--text-xs); color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${task.title}</span>
+                <div class="task-card week-task" 
+                     data-task-id="${task.id}"
+                     style="${taskCardStyle} padding: var(--space-2); border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s ease;"
+                     onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';"
+                     onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                    
+                    <div style="display: flex; justify-content: between; align-items: flex-start; margin-bottom: var(--space-1);">
+                        <span style="font-weight: var(--font-semibold); font-size: var(--text-sm); color: var(--text-primary); line-height: 1.3; flex: 1;">${task.title}</span>
+                        <div style="display: flex; gap: 2px; margin-left: var(--space-1);">
+                            ${priorityIcon}
+                            ${isDueDate ? '<span style="font-size: 10px;">📅</span>' : '<span style="font-size: 10px;">⏱️</span>'}
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: var(--text-xs); color: var(--text-secondary); background-color: ${projectColor}20; padding: 1px 6px; border-radius: 8px;">${projectName}</span>
+                        <span class="status-badge" style="background-color: ${statusColor}; color: white; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 500;">${getStatusText(task.status)}</span>
+                    </div>
                 </div>`;
         });
         
-        weekHTML += `</div>`;
+        // 더 많은 할일이 있으면 표시
+        if (allDayTasks.length > 8) {
+            weekHTML += `
+                <div style="text-align: center; padding: var(--space-2); color: var(--text-tertiary); font-size: var(--text-sm); border: 1px dashed var(--border-secondary); border-radius: var(--radius-md);">
+                    +${allDayTasks.length - 8}개 더 보기
+                </div>`;
+        }
+        
+        // 할일이 없을 때
+        if (allDayTasks.length === 0) {
+            weekHTML += `
+                <div style="text-align: center; padding: var(--space-4); color: var(--text-quaternary); font-size: var(--text-sm);">
+                    <svg style="width: 24px; height: 24px; margin-bottom: var(--space-2); opacity: 0.5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v11a2 2 0 002 2h9.5a2 2 0 002-2V7a2 2 0 00-2-2H14m-5 0V3m0 2h5V3"></path>
+                    </svg>
+                    <br>할 일 없음
+                </div>`;
+        }
+        
+        weekHTML += `</div></div>`;
     }
     
     weekHTML += `</div>`;
     calendarContainer.innerHTML = weekHTML;
+    
+    // 이벤트 리스너 추가
+    addWeekViewEventListeners();
 }
 
 // 목록 뷰 생성
@@ -525,6 +613,75 @@ function createListView() {
     }
 }
 
+// 주간 뷰 이벤트 리스너 추가
+function addWeekViewEventListeners() {
+    // 태스크 카드 클릭 이벤트
+    const taskCards = document.querySelectorAll('.week-task');
+    taskCards.forEach(card => {
+        card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const taskId = card.getAttribute('data-task-id');
+            if (taskId) {
+                openTaskDetail(taskId);
+            }
+        });
+    });
+    
+    // 날짜 클릭 이벤트 (새 할일 추가)
+    const weekDays = document.querySelectorAll('.week-day');
+    weekDays.forEach(day => {
+        day.addEventListener('click', (e) => {
+            // 태스크 카드가 아닌 빈 공간 클릭시에만 실행
+            if (!e.target.closest('.week-task')) {
+                const date = day.getAttribute('data-date');
+                openNewTaskModal(date);
+            }
+        });
+    });
+}
+
+// 상태별 색상 반환
+function getStatusColor(status) {
+    switch(status) {
+        case 'completed': return 'var(--success-500)';
+        case 'in_progress': return 'var(--warning-500)';
+        case 'pending': return 'var(--neutral-400)';
+        default: return 'var(--neutral-400)';
+    }
+}
+
+// 상태 텍스트 반환
+function getStatusText(status) {
+    switch(status) {
+        case 'completed': return '완료';
+        case 'in_progress': return '진행중';
+        case 'pending': return '대기';
+        default: return '대기';
+    }
+}
+
+// 우선순위 아이콘 반환
+function getPriorityIcon(priority) {
+    switch(priority) {
+        case 'high': return '<span style="color: var(--error-500); font-size: 10px;">🔴</span>';
+        case 'medium': return '<span style="color: var(--warning-500); font-size: 10px;">🟡</span>';
+        case 'low': return '<span style="color: var(--success-500); font-size: 10px;">🟢</span>';
+        default: return '<span style="color: var(--neutral-400); font-size: 10px;">⚪</span>';
+    }
+}
+
+// 새 할일 모달 열기 (날짜 지정)
+function openNewTaskModal(selectedDate) {
+    const modal = document.getElementById('newTaskModal');
+    const dueDateInput = document.getElementById('newTaskDueDate');
+    
+    if (modal && dueDateInput) {
+        // 선택된 날짜를 마감일로 설정
+        dueDateInput.value = selectedDate;
+        openModal('newTaskModal');
+    }
+}
+
 // 목록 뷰 렌더링
 function renderListView() {
     let listView = document.getElementById('calendarListView');
@@ -538,9 +695,104 @@ function renderListView() {
     
     // 모든 할일을 표시 (마감일 있는 것과 없는 것 모두)
     if (currentTasks.length === 0) {
-        listContent.innerHTML = '<p style="text-align: center; color: var(--text-tertiary); padding: var(--space-6);">할 일이 없습니다.</p>';
+        listContent.innerHTML = `
+            <div style="text-align: center; padding: var(--space-8); color: var(--text-tertiary);">
+                <svg style="width: 48px; height: 48px; margin-bottom: var(--space-4); opacity: 0.5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v11a2 2 0 002 2h9.5a2 2 0 002-2V7a2 2 0 00-2-2H14m-5 0V3m0 2h5V3"></path>
+                </svg>
+                <p style="font-size: var(--text-lg); margin-bottom: var(--space-2);">할 일이 없습니다</p>
+                <p style="font-size: var(--text-sm);">새로운 할 일을 추가해보세요!</p>
+            </div>`;
         return;
     }
+    
+    // 필터 및 정렬 옵션 HTML
+    const filterSortHTML = `
+        <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-6); padding: var(--space-4); background-color: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--border-primary);">
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+                <label style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-secondary);">상태:</label>
+                <select id="listStatusFilter" style="padding: var(--space-1) var(--space-2); border: 1px solid var(--border-primary); border-radius: var(--radius-md); font-size: var(--text-sm);">
+                    <option value="all">전체</option>
+                    <option value="pending">대기</option>
+                    <option value="in_progress">진행중</option>
+                    <option value="completed">완료</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+                <label style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-secondary);">우선순위:</label>
+                <select id="listPriorityFilter" style="padding: var(--space-1) var(--space-2); border: 1px solid var(--border-primary); border-radius: var(--radius-md); font-size: var(--text-sm);">
+                    <option value="all">전체</option>
+                    <option value="high">높음</option>
+                    <option value="medium">보통</option>
+                    <option value="low">낮음</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+                <label style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-secondary);">프로젝트:</label>
+                <select id="listProjectFilter" style="padding: var(--space-1) var(--space-2); border: 1px solid var(--border-primary); border-radius: var(--radius-md); font-size: var(--text-sm);">
+                    <option value="all">전체 프로젝트</option>
+                    ${currentProjects.map(project => `<option value="${project.id}">${project.name}</option>`).join('')}
+                </select>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+                <label style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-secondary);">정렬:</label>
+                <select id="listSortBy" style="padding: var(--space-1) var(--space-2); border: 1px solid var(--border-primary); border-radius: var(--radius-md); font-size: var(--text-sm);">
+                    <option value="due_date">마감일순</option>
+                    <option value="priority">우선순위순</option>
+                    <option value="created_at">생성일순</option>
+                    <option value="title">제목순</option>
+                    <option value="status">상태순</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+                <input type="text" id="listSearchInput" placeholder="할일 검색..." 
+                       style="padding: var(--space-1) var(--space-2); border: 1px solid var(--border-primary); border-radius: var(--radius-md); font-size: var(--text-sm); min-width: 200px;">
+                <button onclick="clearListFilters()" class="btn btn-ghost btn-sm">
+                    <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>`;
+    
+    // 통계 정보 HTML
+    const completedTasks = currentTasks.filter(t => t.status === 'completed').length;
+    const inProgressTasks = currentTasks.filter(t => t.status === 'in_progress').length;
+    const pendingTasks = currentTasks.filter(t => t.status === 'pending').length;
+    const overdueTasks = currentTasks.filter(t => {
+        if (!t.due_date || t.status === 'completed') return false;
+        return new Date(t.due_date) < new Date();
+    }).length;
+    
+    const statsHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-6);">
+            <div style="background-color: var(--bg-card); padding: var(--space-4); border-radius: var(--radius-lg); border: 1px solid var(--border-primary); text-align: center;">
+                <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: var(--space-1);">${currentTasks.length}</div>
+                <div style="font-size: var(--text-sm); color: var(--text-secondary);">전체 할일</div>
+            </div>
+            <div style="background-color: var(--success-50); padding: var(--space-4); border-radius: var(--radius-lg); border: 1px solid var(--success-200); text-align: center;">
+                <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--success-700); margin-bottom: var(--space-1);">${completedTasks}</div>
+                <div style="font-size: var(--text-sm); color: var(--success-600);">완료</div>
+            </div>
+            <div style="background-color: var(--warning-50); padding: var(--space-4); border-radius: var(--radius-lg); border: 1px solid var(--warning-200); text-align: center;">
+                <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--warning-700); margin-bottom: var(--space-1);">${inProgressTasks}</div>
+                <div style="font-size: var(--text-sm); color: var(--warning-600);">진행중</div>
+            </div>
+            <div style="background-color: var(--neutral-50); padding: var(--space-4); border-radius: var(--radius-lg); border: 1px solid var(--neutral-200); text-align: center;">
+                <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--neutral-700); margin-bottom: var(--space-1);">${pendingTasks}</div>
+                <div style="font-size: var(--text-sm); color: var(--neutral-600);">대기</div>
+            </div>
+            ${overdueTasks > 0 ? `
+                <div style="background-color: var(--error-50); padding: var(--space-4); border-radius: var(--radius-lg); border: 1px solid var(--error-200); text-align: center;">
+                    <div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--error-700); margin-bottom: var(--space-1);">${overdueTasks}</div>
+                    <div style="font-size: var(--text-sm); color: var(--error-600);">지연</div>
+                </div>
+            ` : ''}
+        </div>`;
     
     // 날짜별로 할일 그룹화
     const tasksByDate = {};
@@ -548,7 +800,7 @@ function renderListView() {
     
     currentTasks.forEach(task => {
         if (task.due_date) {
-            const dateKey = task.due_date;
+            const dateKey = task.due_date.split('T')[0]; // 날짜 부분만 추출
             if (!tasksByDate[dateKey]) {
                 tasksByDate[dateKey] = [];
             }
@@ -561,6 +813,248 @@ function renderListView() {
     // 날짜순으로 정렬
     const sortedDates = Object.keys(tasksByDate).sort();
     
+    let listHTML = statsHTML + filterSortHTML + '<div id="taskListContainer">';
+    
+    // 지연된 할일 먼저 표시
+    if (overdueTasks > 0) {
+        const overdue = currentTasks.filter(t => {
+            if (!t.due_date || t.status === 'completed') return false;
+            return new Date(t.due_date) < new Date();
+        });
+        
+        listHTML += `
+            <div style="margin-bottom: var(--space-6);">
+                <h4 style="display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-lg); font-weight: var(--font-semibold); color: var(--error-600); margin-bottom: var(--space-3); padding: var(--space-2); background-color: var(--error-50); border-radius: var(--radius-md); border: 1px solid var(--error-200);">
+                    <svg style="width: 1.25rem; height: 1.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    지연된 할일 (${overdueTasks}개)
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: var(--space-3);">`;
+        
+        overdue.forEach(task => {
+            listHTML += generateTaskCard(task, true);
+        });
+        
+        listHTML += `</div></div>`;
+    }
+    
+    // 오늘 할일
+    const today = new Date().toISOString().split('T')[0];
+    if (tasksByDate[today]) {
+        listHTML += `
+            <div style="margin-bottom: var(--space-6);">
+                <h4 style="display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-lg); font-weight: var(--font-semibold); color: var(--primary-600); margin-bottom: var(--space-3); padding: var(--space-2); background-color: var(--primary-50); border-radius: var(--radius-md); border: 1px solid var(--primary-200);">
+                    <svg style="width: 1.25rem; height: 1.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    오늘 할일 (${tasksByDate[today].length}개)
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: var(--space-3);">`;
+        
+        tasksByDate[today].forEach(task => {
+            listHTML += generateTaskCard(task);
+        });
+        
+        listHTML += `</div></div>`;
+    }
+    
+    // 다른 날짜별 할일
+    sortedDates.forEach(dateKey => {
+        if (dateKey === today) return; // 오늘은 이미 표시했음
+        
+        const tasks = tasksByDate[dateKey];
+        const date = new Date(dateKey);
+        const isOverdue = date < new Date() && !tasks.every(t => t.status === 'completed');
+        const dateStr = formatDateString(dateKey);
+        
+        listHTML += `
+            <div style="margin-bottom: var(--space-6);">
+                <h4 style="display: flex; align-items: center; justify-content: space-between; font-size: var(--text-lg); font-weight: var(--font-semibold); color: var(--text-primary); margin-bottom: var(--space-3); padding: var(--space-2); background-color: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-primary);">
+                    <span style="display: flex; align-items: center; gap: var(--space-2);">
+                        <svg style="width: 1.25rem; height: 1.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        ${dateStr}
+                        ${isOverdue ? '<span style="color: var(--error-500); font-size: var(--text-sm);">(지연)</span>' : ''}
+                    </span>
+                    <span style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: var(--font-normal);">${tasks.length}개</span>
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: var(--space-3);">`;
+        
+        tasks.forEach(task => {
+            listHTML += generateTaskCard(task, isOverdue);
+        });
+        
+        listHTML += `</div></div>`;
+    });
+    
+    // 마감일이 없는 할일
+    if (tasksWithoutDate.length > 0) {
+        listHTML += `
+            <div style="margin-bottom: var(--space-6);">
+                <h4 style="display: flex; align-items: center; justify-content: space-between; font-size: var(--text-lg); font-weight: var(--font-semibold); color: var(--text-secondary); margin-bottom: var(--space-3); padding: var(--space-2); background-color: var(--neutral-50); border-radius: var(--radius-md); border: 1px solid var(--neutral-200);">
+                    <span style="display: flex; align-items: center; gap: var(--space-2);">
+                        <svg style="width: 1.25rem; height: 1.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v11a2 2 0 002 2h9.5a2 2 0 002-2V7a2 2 0 00-2-2H14m-5 0V3m0 2h5V3"></path>
+                        </svg>
+                        마감일 없음
+                    </span>
+                    <span style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: var(--font-normal);">${tasksWithoutDate.length}개</span>
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: var(--space-3);">`;
+        
+        tasksWithoutDate.forEach(task => {
+            listHTML += generateTaskCard(task);
+        });
+        
+        listHTML += `</div></div>`;
+    }
+    
+    listHTML += '</div>';
+    listContent.innerHTML = listHTML;
+    
+    // 필터 이벤트 리스너 추가
+    addListViewEventListeners();
+}
+
+// 할일 카드 생성
+function generateTaskCard(task, isOverdue = false) {
+    const project = currentProjects.find(p => p.id === task.project_id);
+    const projectColor = project ? project.color : '#3B82F6';
+    const projectName = project ? project.name : '기본 프로젝트';
+    const statusColor = getStatusColor(task.status);
+    const priorityIcon = getPriorityIcon(task.priority);
+    const progress = task.progress || 0;
+    
+    const dueDate = task.due_date ? new Date(task.due_date) : null;
+    const dueDateStr = dueDate ? formatDateString(task.due_date.split('T')[0]) : '';
+    
+    const overdueStyle = isOverdue ? 'border-left: 4px solid var(--error-500); background-color: var(--error-50);' : `border-left: 4px solid ${projectColor};`;
+    
+    return `
+        <div class="task-list-card" data-task-id="${task.id}" 
+             style="${overdueStyle} background-color: var(--bg-card); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); padding: var(--space-4); cursor: pointer; transition: all 0.2s ease;"
+             onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 20px rgba(0,0,0,0.1)';"
+             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+            
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-3);">
+                <div style="flex: 1;">
+                    <h5 style="font-size: var(--text-lg); font-weight: var(--font-semibold); color: var(--text-primary); margin-bottom: var(--space-1); line-height: 1.4;">${task.title}</h5>
+                    ${task.description ? `<p style="font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; margin-bottom: var(--space-2);">${task.description}</p>` : ''}
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: var(--space-2); margin-left: var(--space-3);">
+                    ${priorityIcon}
+                    <span class="status-badge" style="background-color: ${statusColor}; color: white; padding: 4px 8px; border-radius: var(--radius-md); font-size: var(--text-xs); font-weight: 600;">${getStatusText(task.status)}</span>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+                <span style="font-size: var(--text-sm); color: var(--text-secondary); background-color: ${projectColor}20; color: ${projectColor}; padding: 4px 8px; border-radius: var(--radius-md); font-weight: 500;">${projectName}</span>
+                ${dueDateStr ? `<span style="font-size: var(--text-sm); color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-1);">
+                    <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    ${dueDateStr}
+                </span>` : ''}
+            </div>
+            
+            ${progress > 0 ? `
+                <div style="margin-bottom: var(--space-2);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-1);">
+                        <span style="font-size: var(--text-sm); color: var(--text-secondary);">진행률</span>
+                        <span style="font-size: var(--text-sm); font-weight: var(--font-semibold); color: var(--text-primary);">${progress}%</span>
+                    </div>
+                    <div style="width: 100%; height: 6px; background-color: var(--neutral-200); border-radius: var(--radius-sm);">
+                        <div style="width: ${progress}%; height: 100%; background-color: ${projectColor}; border-radius: var(--radius-sm); transition: width 0.3s ease;"></div>
+                    </div>
+                </div>
+            ` : ''}
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: var(--text-xs); color: var(--text-tertiary);">
+                <span>생성일: ${formatDateString(task.created_at?.split('T')[0] || '')}</span>
+                ${task.updated_at ? `<span>수정일: ${formatDateString(task.updated_at.split('T')[0])}</span>` : ''}
+            </div>
+        </div>`;
+}
+
+// 날짜 문자열 포맷팅
+function formatDateString(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
+    if (dateStr === today.toISOString().split('T')[0]) {
+        return '오늘';
+    } else if (dateStr === yesterday.toISOString().split('T')[0]) {
+        return '어제';
+    } else if (dateStr === tomorrow.toISOString().split('T')[0]) {
+        return '내일';
+    } else {
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+        const dayName = dayNames[date.getDay()];
+        
+        if (year === today.getFullYear()) {
+            return `${month}월 ${day}일 (${dayName})`;
+        } else {
+            return `${year}년 ${month}월 ${day}일 (${dayName})`;
+        }
+    }
+}
+
+// 목록 뷰 이벤트 리스너
+function addListViewEventListeners() {
+    // 태스크 카드 클릭
+    const taskCards = document.querySelectorAll('.task-list-card');
+    taskCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const taskId = card.getAttribute('data-task-id');
+            if (taskId) {
+                openTaskDetail(taskId);
+            }
+        });
+    });
+    
+    // 필터 이벤트 리스너
+    const statusFilter = document.getElementById('listStatusFilter');
+    const priorityFilter = document.getElementById('listPriorityFilter');
+    const projectFilter = document.getElementById('listProjectFilter');
+    const sortBy = document.getElementById('listSortBy');
+    const searchInput = document.getElementById('listSearchInput');
+    
+    if (statusFilter) statusFilter.addEventListener('change', applyListFilters);
+    if (priorityFilter) priorityFilter.addEventListener('change', applyListFilters);
+    if (projectFilter) projectFilter.addEventListener('change', applyListFilters);
+    if (sortBy) sortBy.addEventListener('change', applyListFilters);
+    if (searchInput) searchInput.addEventListener('input', applyListFilters);
+}
+
+// 필터 적용
+function applyListFilters() {
+    // 필터 로직은 향후 구현
+    console.log('필터 적용 중...');
+}
+
+// 필터 초기화
+function clearListFilters() {
+    document.getElementById('listStatusFilter').value = 'all';
+    document.getElementById('listPriorityFilter').value = 'all';
+    document.getElementById('listProjectFilter').value = 'all';
+    document.getElementById('listSortBy').value = 'due_date';
+    document.getElementById('listSearchInput').value = '';
+    applyListFilters();
+}
+
+// 목록 뷰 렌더링 함수 수정
+function renderListViewContent() {
     let listHTML = '';
     
     // 마감일이 없는 할일들 먼저 표시
@@ -1982,7 +2476,7 @@ function renderCalendar() {
             const isToday = currentCalendarDate.toDateString() === new Date().toDateString();
             const dayNum = currentCalendarDate.getDate();
             
-            // 해당 날짜의 할 일 찾기
+            // 해당 날짜의 할 일 찾기 (마감일 기준)
             const dayTasks = currentTasks.filter(task => {
                 if (!task.due_date) return false;
                 const taskDate = new Date(task.due_date);
@@ -1991,13 +2485,24 @@ function renderCalendar() {
             
             // 날짜 범위에 포함된 태스크 찾기 (시작일-마감일 사이)
             const rangeInTasks = currentTasks.filter(task => {
-                if (!task.start_date || !task.due_date) return false;
-                const startDate = new Date(task.start_date);
-                const dueDate = new Date(task.due_date);
+                const startDate = task.start_date ? new Date(task.start_date) : null;
+                const dueDate = task.due_date ? new Date(task.due_date) : null;
                 const currentDate = new Date(currentCalendarDate);
+                currentDate.setHours(0, 0, 0, 0);
                 
-                // 날짜가 시작일과 마감일 사이에 있는지 확인 (시작일, 마감일 포함)
-                return currentDate >= startDate && currentDate <= dueDate;
+                // 시작일이 있고 마감일이 있는 경우
+                if (startDate && dueDate) {
+                    startDate.setHours(0, 0, 0, 0);
+                    dueDate.setHours(0, 0, 0, 0);
+                    return currentDate >= startDate && currentDate <= dueDate;
+                }
+                // 마감일만 있는 경우
+                else if (dueDate) {
+                    dueDate.setHours(0, 0, 0, 0);
+                    return currentDate.getTime() === dueDate.getTime();
+                }
+                
+                return false;
             });
 
             let dayColor = '';
@@ -2043,27 +2548,41 @@ function renderCalendar() {
                         ${isToday ? '<span class="today-marker" style="background-color: var(--primary-500); color: white; padding: 2px 4px; border-radius: 4px; font-size: 10px;">오늘</span>' : ''}
                     </div>`;
 
-            // 할 일을 작은 점으로 표시
-            if (dayTasks.length > 0) {
-                calendarHTML += `<div style="display: flex; flex-wrap: wrap; gap: 3px; margin-top: var(--space-1);">`;
+            // 모든 관련 태스크 표시 (마감일 태스크 + 범위 내 태스크)
+            const allDayTasks = [...new Set([...dayTasks, ...rangeInTasks])]; // 중복 제거
+            
+            if (allDayTasks.length > 0) {
+                calendarHTML += `<div style="display: flex; flex-direction: column; gap: 2px; margin-top: var(--space-1); max-height: 60px; overflow: hidden;">`;
                 
-                // 최대 6개까지 점으로 표시
-                const maxDots = Math.min(dayTasks.length, 6);
-                for (let i = 0; i < maxDots; i++) {
-                    const task = dayTasks[i];
+                // 최대 3개까지 태스크 바로 표시
+                const maxBars = Math.min(allDayTasks.length, 3);
+                for (let i = 0; i < maxBars; i++) {
+                    const task = allDayTasks[i];
                     const project = currentProjects.find(p => p.id === task.project_id);
                     const projectColor = project ? project.color : '#3B82F6';
                     
+                    // 마감일인지 범위 내인지 구분
+                    const isDueDate = dayTasks.some(t => t.id === task.id);
+                    const isInRange = rangeInTasks.some(t => t.id === task.id) && !isDueDate;
+                    
+                    // 태스크 바 스타일
+                    const taskBarStyle = isDueDate 
+                        ? `background-color: ${projectColor}; border: 2px solid ${projectColor}; font-weight: 600;`
+                        : `background-color: ${projectColor}30; border: 1px solid ${projectColor}; color: ${projectColor};`;
+                    
                     calendarHTML += `
-                        <div class="task-dot" 
+                        <div class="task-bar" 
                              data-task-id="${task.id}"
-                             style="width: 8px; height: 8px; border-radius: 50%; background-color: ${projectColor}; cursor: pointer;"
-                             title="${task.title}"></div>`;
+                             style="${taskBarStyle} padding: 1px 4px; border-radius: 3px; font-size: 10px; line-height: 1.2; cursor: pointer; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: white;"
+                             title="${task.title} ${isDueDate ? '(마감일)' : '(진행중)'}">
+                            ${task.title.length > 8 ? task.title.substring(0, 8) + '...' : task.title}
+                            ${isDueDate ? ' 📅' : ''}
+                        </div>`;
                 }
                 
                 // 더 많은 할일이 있으면 +표시
-                if (dayTasks.length > 6) {
-                    calendarHTML += `<div style="font-size: 10px; color: var(--text-tertiary); margin-left: 2px;">+${dayTasks.length - 6}</div>`;
+                if (allDayTasks.length > 3) {
+                    calendarHTML += `<div style="font-size: 9px; color: var(--text-tertiary); text-align: center; margin-top: 1px;">+${allDayTasks.length - 3}개 더</div>`;
                 }
                 
                 calendarHTML += `</div>`;
@@ -4433,15 +4952,24 @@ function changeCalendarView(view) {
 
 // 캘린더 날짜 이동
 function moveCalendarDate(direction) {
-    // 이전/다음 달로 이동 로직
-    if (direction === 'prev') {
-        currentDate.setMonth(currentDate.getMonth() - 1);
-    } else if (direction === 'next') {
-        currentDate.setMonth(currentDate.getMonth() + 1);
+    if (calendarView === 'week') {
+        // 주간 뷰에서는 1주씩 이동
+        if (direction === 'prev') {
+            currentDate.setDate(currentDate.getDate() - 7);
+        } else if (direction === 'next') {
+            currentDate.setDate(currentDate.getDate() + 7);
+        }
+        renderWeekView();
+    } else {
+        // 월간 뷰에서는 1달씩 이동
+        if (direction === 'prev') {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+        } else if (direction === 'next') {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+        renderCalendar();
     }
     
-    // 캘린더 UI 업데이트
-    renderCalendar();
     console.log(`캘린더 날짜가 ${currentDate.getFullYear()}년 ${currentDate.getMonth() + 1}월로 변경되었습니다.`);
 }
 
