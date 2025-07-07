@@ -710,6 +710,12 @@ function setupEventListeners() {
     if (taskDetailStatus) {
         taskDetailStatus.addEventListener('click', handleStatusChange);
     }
+    
+    // 댓글 새로고침 버튼 클릭 이벤트
+    const refreshCommentsBtn = document.getElementById('refreshComments');
+    if (refreshCommentsBtn) {
+        refreshCommentsBtn.addEventListener('click', handleRefreshComments);
+    }
 
     // 캘린더 네비게이션 버튼들
     const calendarPrevBtn = document.querySelector('#calendarView .calendar-controls button:first-child');
@@ -3752,6 +3758,49 @@ function updateTaskDetailStatus(status) {
     statusElement.textContent = config.text;
     // 스타일 적용
     statusElement.setAttribute('style', config.style);
+}
+
+// 댓글 새로고침 처리 함수
+async function handleRefreshComments() {
+    if (!currentTaskId) {
+        console.error('현재 작업 ID가 없습니다.');
+        return;
+    }
+    
+    const refreshBtn = document.getElementById('refreshComments');
+    if (!refreshBtn) return;
+    
+    try {
+        // 버튼 비활성화 및 로딩 애니메이션
+        refreshBtn.disabled = true;
+        const originalIcon = refreshBtn.innerHTML;
+        refreshBtn.innerHTML = `
+            <svg style="width: 1rem; height: 1rem; animation: spin 1s linear infinite;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+        `;
+        
+        // 댓글 다시 로드
+        await loadTaskComments(currentTaskId);
+        
+        showNotification('댓글이 새로고침되었습니다.', 'success');
+        
+    } catch (error) {
+        console.error('댓글 새로고침 실패:', error);
+        showNotification('댓글 새로고침에 실패했습니다.', 'error');
+    } finally {
+        // 버튼 복원
+        setTimeout(() => {
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = `
+                    <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                `;
+            }
+        }, 1000); // 1초 후 버튼 복원
+    }
 }
 
 // 댓글 삭제 함수
