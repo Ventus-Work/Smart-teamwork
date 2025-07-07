@@ -705,6 +705,12 @@ function setupEventListeners() {
     // 색상 선택 이벤트 리스너
     initColorPicker();
 
+    // 작업 상세 모달의 상태 버튼 클릭 이벤트
+    const taskDetailStatus = document.getElementById('taskDetailStatus');
+    if (taskDetailStatus) {
+        taskDetailStatus.addEventListener('click', handleStatusChange);
+    }
+
     // 캘린더 네비게이션 버튼들
     const calendarPrevBtn = document.querySelector('#calendarView .calendar-controls button:first-child');
     const calendarNextBtn = document.querySelector('#calendarView .calendar-controls button:last-child');
@@ -3208,19 +3214,21 @@ function populateTaskDetailModal(task) {
         priorityElement.style.color = priorityColor;
     }
 
-    // 상태 (데이터베이스와 UI 상태 값 매핑)
+    // 상태 (데이터베이스와 UI 상태 값 매핑) - 클릭 가능하도록 스타일 설정
     if (statusElement) {
-        const statusText = (task.status === 'todo' || task.status === 'pending') ? '대기중' : 
-                         (task.status === 'in_progress' || task.status === 'doing') ? '진행중' : 
-                         (task.status === 'completed' || task.status === 'done') ? '완료' : '취소';
-        statusElement.textContent = statusText;
+        // 기존 이벤트 리스너 제거
+        statusElement.onclick = null;
+        statusElement.removeEventListener('click', handleStatusChange);
         
-        const statusColor = (task.status === 'todo' || task.status === 'pending') ? 'var(--neutral-500)' : 
-                          (task.status === 'in_progress' || task.status === 'doing') ? 'var(--warning-500)' : 
-                          (task.status === 'completed' || task.status === 'done') ? 'var(--success-500)' : 'var(--error-500)';
-        statusElement.style.backgroundColor = statusColor + '20';
-        statusElement.style.color = statusColor;
-        statusElement.style.borderColor = statusColor + '50';
+        // 새 이벤트 리스너 추가
+        statusElement.addEventListener('click', handleStatusChange);
+        
+        // 클릭 가능함을 나타내는 커서 스타일
+        statusElement.style.cursor = 'pointer';
+        statusElement.title = '클릭하여 상태 선택';
+        
+        // 상태 업데이트
+        updateTaskDetailStatus(task.status);
     }
 
     // 날짜 정보
@@ -3532,6 +3540,218 @@ async function handleAddComment() {
             addCommentBtn.disabled = false;
         }
     }
+}
+
+// 작업 상태 변경 드롭다운 토글
+function handleStatusChange() {
+    if (!currentTaskId) {
+        console.error('현재 작업 ID가 없습니다.');
+        return;
+    }
+    
+    toggleStatusDropdown();
+}
+
+// 상태 드롭다운 표시/숨기기
+function toggleStatusDropdown() {
+    const statusElement = document.getElementById('taskDetailStatus');
+    if (!statusElement) return;
+    
+    // 기존 드롭다운이 있으면 제거
+    const existingDropdown = document.getElementById('statusDropdown');
+    if (existingDropdown) {
+        existingDropdown.remove();
+        return;
+    }
+    
+    // 드롭다운 생성
+    const dropdown = document.createElement('div');
+    dropdown.id = 'statusDropdown';
+    dropdown.className = 'position-absolute bg-white border';
+    dropdown.style.cssText = `
+        top: 100%;
+        left: 0;
+        min-width: 100px;
+        z-index: 1000;
+        margin-top: 2px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    `;
+    
+    // 상태 옵션들
+    const statusOptions = [
+        { value: 'pending', text: '대기중' },
+        { value: 'in_progress', text: '진행중' },
+        { value: 'completed', text: '완료' }
+    ];
+    
+    // 현재 작업의 상태
+    const task = currentTasks.find(t => t.id === currentTaskId);
+    const currentStatus = task?.status || 'pending';
+    
+    statusOptions.forEach((option, index) => {
+        const item = document.createElement('div');
+        item.className = 'px-3 py-2';
+        item.style.cssText = `
+            cursor: pointer;
+            font-size: 14px;
+            ${index > 0 ? 'border-top: 1px solid #eee;' : ''}
+            ${option.value === currentStatus ? 'background-color: #f8f9fa; font-weight: 500;' : ''}
+        `;
+        
+        // 현재 상태인 경우 체크 표시
+        const checkIcon = option.value === currentStatus ? '✓ ' : '';
+        
+        item.innerHTML = `${checkIcon}${option.text}`;
+        
+        // 호버 효과
+        item.addEventListener('mouseenter', () => {
+            if (option.value !== currentStatus) {
+                item.style.backgroundColor = '#f8f9fa';
+            }
+        });
+        
+        item.addEventListener('mouseleave', () => {
+            if (option.value !== currentStatus) {
+                item.style.backgroundColor = '';
+            }
+        });
+        
+        // 클릭 이벤트
+        item.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await changeTaskStatus(option.value);
+            dropdown.remove();
+        });
+        
+        dropdown.appendChild(item);
+    });
+    
+    // 상태 요소를 relative position으로 설정
+    statusElement.style.position = 'relative';
+    statusElement.appendChild(dropdown);
+    
+    // 외부 클릭 시 드롭다운 닫기
+    const closeDropdown = (e) => {
+        if (!dropdown.contains(e.target) && !statusElement.contains(e.target)) {
+            dropdown.remove();
+            document.removeEventListener('click', closeDropdown);
+        }
+    };
+    
+    setTimeout(() => {
+        document.addEventListener('click', closeDropdown);
+    }, 10);
+}
+
+// 작업 상태 변경 실행
+async function changeTaskStatus(newStatus) {
+    if (!currentTaskId) {
+        console.error('현재 작업 ID가 없습니다.');
+        return;
+    }
+    
+    const task = currentTasks.find(t => t.id === currentTaskId);
+    if (!task) {
+        console.error('현재 작업을 찾을 수 없습니다.');
+        return;
+    }
+    
+    // 현재 상태와 같으면 변경하지 않음
+    if (task.status === newStatus) {
+        return;
+    }
+    
+    try {
+        console.log('작업 상태 변경:', task.status, '→', newStatus);
+        
+        if (isDemoMode) {
+            // 데모 모드에서 상태 변경
+            const taskIndex = currentTasks.findIndex(t => t.id === currentTaskId);
+            if (taskIndex !== -1) {
+                currentTasks[taskIndex].status = newStatus;
+                currentTasks[taskIndex].updated_at = new Date().toISOString();
+                localStorage.setItem('demo_tasks', JSON.stringify(currentTasks));
+                console.log('데모 모드에서 상태 변경 완료');
+            }
+        } else {
+            // Supabase에서 상태 변경
+            const { error } = await supabase
+                .from('todos')
+                .update({ 
+                    status: newStatus,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', currentTaskId);
+                
+            if (error) {
+                console.error('Supabase 상태 업데이트 실패:', error);
+                showNotification('상태 변경에 실패했습니다.', 'error');
+                return;
+            }
+            
+            // 로컬 데이터도 업데이트
+            const taskIndex = currentTasks.findIndex(t => t.id === currentTaskId);
+            if (taskIndex !== -1) {
+                currentTasks[taskIndex].status = newStatus;
+                currentTasks[taskIndex].updated_at = new Date().toISOString();
+            }
+            
+            console.log('Supabase에서 상태 변경 완료');
+        }
+        
+        // 상태 UI 업데이트
+        updateTaskDetailStatus(newStatus);
+        
+        // 대시보드와 다른 뷰들 새로고침
+        updateDashboard();
+        if (currentView === 'calendar') {
+            renderCalendar();
+        }
+        
+        showNotification('작업 상태가 변경되었습니다.', 'success');
+        
+    } catch (error) {
+        console.error('상태 변경 실패:', error);
+        showNotification('상태 변경에 실패했습니다.', 'error');
+    }
+}
+
+// 작업 상세 모달의 상태 표시 업데이트
+function updateTaskDetailStatus(status) {
+    const statusElement = document.getElementById('taskDetailStatus');
+    if (!statusElement) return;
+    
+    // 상태에 따른 텍스트와 스타일 설정
+    const statusConfig = {
+        'pending': {
+            text: '대기중',
+            className: 'btn-warning',
+            style: 'background-color: var(--warning-500)20; color: var(--warning-500); border-color: var(--warning-500)50;'
+        },
+        'in_progress': {
+            text: '진행중',
+            className: 'btn-primary',
+            style: 'background-color: var(--primary-500)20; color: var(--primary-500); border-color: var(--primary-500)50;'
+        },
+        'completed': {
+            text: '완료',
+            className: 'btn-success',
+            style: 'background-color: var(--success-500)20; color: var(--success-500); border-color: var(--success-500)50;'
+        }
+    };
+    
+    const config = statusConfig[status] || statusConfig['pending'];
+    
+    // 기존 클래스 제거
+    statusElement.className = 'btn btn-sm';
+    // 새 클래스 추가
+    statusElement.classList.add(config.className);
+    // 텍스트 업데이트
+    statusElement.textContent = config.text;
+    // 스타일 적용
+    statusElement.setAttribute('style', config.style);
 }
 
 // 댓글 삭제 함수
