@@ -70,6 +70,211 @@ let isDemoMode = false;
 let isModalFullSize = false;
 let calendarView = 'month'; // 'month', 'week', 'list'
 
+// 관리자 이메일 설정
+const ADMIN_EMAIL = 'gustn6100@gmail.com';
+
+// 한국 시간 헬퍼 함수
+function getKoreanTime(date = new Date()) {
+    return new Date(date.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
+}
+
+function formatKoreanDate(date = new Date()) {
+    const koreanDate = getKoreanTime(date);
+    return koreanDate.toISOString().split('T')[0];
+}
+
+// 사용자 승인 상태 확인
+async function checkUserApproval(email) {
+    try {
+        // 관리자는 자동 승인
+        if (email === ADMIN_EMAIL) {
+            return true;
+        }
+        
+        if (!supabase) {
+            console.warn('Supabase가 초기화되지 않음 - 데모 모드에서는 승인 체크 스킵');
+            return true;
+        }
+        
+        // user_approvals 테이블에서 승인 상태 확인
+        const { data, error } = await supabase
+            .from('user_approvals')
+            .select('approved')
+            .eq('email', email)
+            .single();
+            
+        if (error && error.code !== 'PGRST116') { // PGRST116는 레코드가 없다는 뜻
+            console.error('승인 상태 확인 실패:', error);
+            return false;
+        }
+        
+        // 레코드가 없으면 승인 대기 상태로 생성
+        if (!data) {
+            await createApprovalRecord(email);
+            return false;
+        }
+        
+        return data.approved;
+    } catch (error) {
+        console.error('승인 체크 중 오류:', error);
+        return false;
+    }
+}
+
+// 승인 대기 레코드 생성
+async function createApprovalRecord(email) {
+    try {
+        const { error } = await supabase
+            .from('user_approvals')
+            .insert([{
+                email: email,
+                approved: false,
+                requested_at: new Date().toISOString()
+            }]);
+            
+        if (error) {
+            console.error('승인 레코드 생성 실패:', error);
+        }
+    } catch (error) {
+        console.error('승인 레코드 생성 중 오류:', error);
+    }
+}
+
+// 승인 대기 화면 표시
+function showApprovalPending(email) {
+    const mainApp = document.getElementById('app');
+    const loginScreen = document.getElementById('loginScreen');
+    
+    if (mainApp) mainApp.style.display = 'none';
+    if (loginScreen) {
+        loginScreen.style.display = 'flex';
+        loginScreen.innerHTML = `
+            <div class="login-container">
+                <div class="login-card">
+                    <div style="text-align: center; margin-bottom: 2rem;">
+                        <h1 style="color: var(--primary-500); font-size: 2rem; margin-bottom: 1rem;">승인 대기 중</h1>
+                        <div style="background: var(--warning-50); border: 1px solid var(--warning-200); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem;">
+                            <p style="color: var(--warning-700); margin-bottom: 0.5rem;">
+                                <strong>${email}</strong>으로 로그인하셨습니다.
+                            </p>
+                            <p style="color: var(--warning-600); font-size: 0.9rem;">
+                                관리자의 승인을 기다리고 있습니다.<br>
+                                승인이 완료되면 다시 로그인해주세요.
+                            </p>
+                        </div>
+                        <button onclick="handleLogout()" 
+                                style="background: var(--neutral-500); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s;">
+                            다른 계정으로 로그인
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// 관리자 승인 관리 기능 (관리자만 접근 가능)
+async function showAdminApprovalPage() {
+    if (currentUser?.email !== ADMIN_EMAIL) {
+        showNotification('관리자만 접근할 수 있습니다.', 'error');
+        return;
+    }
+    
+    try {
+        const { data: pendingUsers, error } = await supabase
+            .from('user_approvals')
+            .select('*')
+            .eq('approved', false)
+            .order('requested_at', { ascending: false });
+            
+        if (error) {
+            throw error;
+        }
+        
+        const modal = document.getElementById('taskModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        
+        modalTitle.textContent = '사용자 승인 관리';
+        modalBody.innerHTML = `
+            <div style="max-height: 400px; overflow-y: auto;">
+                ${pendingUsers.length === 0 ? 
+                    '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">승인 대기 중인 사용자가 없습니다.</p>' :
+                    pendingUsers.map(user => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid var(--border-primary); border-radius: var(--radius-lg); margin-bottom: 0.5rem;">
+                            <div>
+                                <strong>${user.email}</strong>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                    요청일: ${new Date(user.requested_at).toLocaleString('ko-KR')}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button onclick="approveUser('${user.email}')" 
+                                        style="background: var(--success-500); color: white; border: none; padding: 0.5rem 1rem; border-radius: var(--radius-md); cursor: pointer;">
+                                    승인
+                                </button>
+                                <button onclick="rejectUser('${user.email}')" 
+                                        style="background: var(--error-500); color: white; border: none; padding: 0.5rem 1rem; border-radius: var(--radius-md); cursor: pointer;">
+                                    거부
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')
+                }
+            </div>
+        `;
+        
+        modal.style.display = 'flex';
+    } catch (error) {
+        console.error('승인 관리 페이지 로드 실패:', error);
+        showNotification('승인 관리 페이지를 불러올 수 없습니다.', 'error');
+    }
+}
+
+// 사용자 승인
+async function approveUser(email) {
+    try {
+        const { error } = await supabase
+            .from('user_approvals')
+            .update({ 
+                approved: true, 
+                approved_at: new Date().toISOString(),
+                approved_by: ADMIN_EMAIL
+            })
+            .eq('email', email);
+            
+        if (error) {
+            throw error;
+        }
+        
+        showNotification(`${email} 사용자가 승인되었습니다.`, 'success');
+        showAdminApprovalPage(); // 페이지 새로고침
+    } catch (error) {
+        console.error('사용자 승인 실패:', error);
+        showNotification('사용자 승인에 실패했습니다.', 'error');
+    }
+}
+
+// 사용자 거부
+async function rejectUser(email) {
+    try {
+        const { error } = await supabase
+            .from('user_approvals')
+            .delete()
+            .eq('email', email);
+            
+        if (error) {
+            throw error;
+        }
+        
+        showNotification(`${email} 사용자가 거부되었습니다.`, 'success');
+        showAdminApprovalPage(); // 페이지 새로고침
+    } catch (error) {
+        console.error('사용자 거부 실패:', error);
+        showNotification('사용자 거부에 실패했습니다.', 'error');
+    }
+}
+
 // DOM 요소 (존재하는 요소만)
 const elements = {
     loading: document.getElementById('loading'),
@@ -426,34 +631,37 @@ function switchCalendarView(viewType) {
     }
 }
 
-// 주간 뷰 렌더링
+// 주간 뷰 렌더링 - 오늘 기준 1주 표시
 function renderWeekView() {
-    // 현재 선택된 날짜를 기준으로 한 주간 계산
-    const selectedDate = new Date(currentDate);
-    const startOfWeek = new Date(selectedDate);
-    startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay()); // 일요일로 설정
+    // 오늘 날짜를 기준으로 한국 시간 기준 주간 계산
+    const today = getKoreanTime();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay()); // 일요일로 설정
     
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6); // 토요일까지
     
+    // currentDate를 오늘 기준으로 업데이트
+    currentDate = new Date(today);
+    
     const calendarContainer = document.getElementById('calendarContainer');
     if (!calendarContainer) return;
     
-    // 주간 헤더 업데이트
+    // 주간 헤더 업데이트 - 이번 주 표시
     const monthYearDisplay = document.querySelector('#calendarView .calendar-controls h3');
     if (monthYearDisplay) {
-        monthYearDisplay.textContent = `${startOfWeek.getFullYear()}년 ${startOfWeek.getMonth() + 1}월 ${startOfWeek.getDate()}일 - ${endOfWeek.getDate()}일`;
+        monthYearDisplay.textContent = `이번 주 (${startOfWeek.getMonth() + 1}월 ${startOfWeek.getDate()}일 - ${endOfWeek.getMonth() + 1}월 ${endOfWeek.getDate()}일)`;
     }
     
     let weekHTML = `
         <!-- 요일 헤더 -->
-        <div style="display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 2px solid var(--border-primary); background-color: var(--bg-secondary);">
-            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); color: var(--error-600); border-right: 1px solid var(--border-primary);">일요일</div>
-            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); border-right: 1px solid var(--border-primary);">월요일</div>
-            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); border-right: 1px solid var(--border-primary);">화요일</div>
-            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); border-right: 1px solid var(--border-primary);">수요일</div>
-            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); border-right: 1px solid var(--border-primary);">목요일</div>
-            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); border-right: 1px solid var(--border-primary);">금요일</div>
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); background-color: var(--bg-secondary);">
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); color: var(--error-600);">일요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold);">월요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold);">화요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold);">수요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold);">목요일</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold);">금요일</div>
             <div style="padding: var(--space-3); text-align: center; font-weight: var(--font-semibold); color: var(--primary-600);">토요일</div>
         </div>
         <!-- 주간 뷰 -->
@@ -462,22 +670,23 @@ function renderWeekView() {
     for (let i = 0; i < 7; i++) {
         const currentDay = new Date(startOfWeek);
         currentDay.setDate(startOfWeek.getDate() + i);
-        const today = new Date();
+        const today = getKoreanTime();
         const isToday = currentDay.toDateString() === today.toDateString();
         const dayNum = currentDay.getDate();
         const monthName = currentDay.getMonth() + 1;
         
-        // 해당 날짜의 할 일 찾기 (마감일 + 범위 내 태스크)
+        // 해당 날짜의 할 일 찾기 (마감일 + 범위 내 태스크) - 한국 시간 기준
         const dayTasks = currentTasks.filter(task => {
             if (!task.due_date) return false;
-            const taskDate = new Date(task.due_date);
-            return taskDate.toDateString() === currentDay.toDateString();
+            const taskDate = getKoreanTime(new Date(task.due_date));
+            const koreanCurrentDay = getKoreanTime(currentDay);
+            return taskDate.toDateString() === koreanCurrentDay.toDateString();
         });
         
         const rangeInTasks = currentTasks.filter(task => {
-            const startDate = task.start_date ? new Date(task.start_date) : null;
-            const dueDate = task.due_date ? new Date(task.due_date) : null;
-            const currentDate = new Date(currentDay);
+            const startDate = task.start_date ? getKoreanTime(new Date(task.start_date)) : null;
+            const dueDate = task.due_date ? getKoreanTime(new Date(task.due_date)) : null;
+            const currentDate = getKoreanTime(new Date(currentDay));
             currentDate.setHours(0, 0, 0, 0);
             
             if (startDate && dueDate) {
@@ -504,8 +713,8 @@ function renderWeekView() {
         }
         
         weekHTML += `
-            <div class="calendar-day week-day" data-date="${currentDay.toISOString().split('T')[0]}"
-                 style="min-height: 400px; padding: var(--space-3); ${i < 6 ? 'border-right: 1px solid var(--border-primary);' : ''} ${dayColor} ${bgColor} cursor: pointer; position: relative;">
+            <div class="calendar-day week-day" data-date="${formatKoreanDate(currentDay)}"
+                 style="min-height: 400px; padding: var(--space-3); ${dayColor} ${bgColor} cursor: pointer; position: relative;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); border-bottom: 1px solid var(--border-secondary); padding-bottom: var(--space-2);">
                     <div style="display: flex; flex-direction: column; align-items: center;">
                         <span style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-1);">${monthName}월</span>
@@ -840,7 +1049,7 @@ function renderListView() {
     }
     
     // 오늘 할일
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatKoreanDate();
     if (tasksByDate[today]) {
         listHTML += `
             <div style="margin-bottom: var(--space-6);">
@@ -1740,6 +1949,14 @@ async function checkAuthState() {
         if (user) {
             console.log('로그인된 사용자 발견:', user.email);
             currentUser = user;
+            
+            // 관리자 승인 체크
+            const isApproved = await checkUserApproval(user.email);
+            if (!isApproved) {
+                showApprovalPending(user.email);
+                return;
+            }
+            
             await initializeUserData();
             showMainApp();
             switchView('dashboard');
@@ -2473,21 +2690,22 @@ function renderCalendar() {
             currentCalendarDate.setDate(startDate.getDate() + (week * 7) + day);
             
             const isCurrentMonth = currentCalendarDate.getMonth() === month;
-            const isToday = currentCalendarDate.toDateString() === new Date().toDateString();
+            const isToday = currentCalendarDate.toDateString() === getKoreanTime().toDateString();
             const dayNum = currentCalendarDate.getDate();
             
-            // 해당 날짜의 할 일 찾기 (마감일 기준)
+            // 해당 날짜의 할 일 찾기 (마감일 기준) - 한국 시간 기준
             const dayTasks = currentTasks.filter(task => {
                 if (!task.due_date) return false;
-                const taskDate = new Date(task.due_date);
-                return taskDate.toDateString() === currentCalendarDate.toDateString();
+                const taskDate = getKoreanTime(new Date(task.due_date));
+                const koreanCalendarDate = getKoreanTime(currentCalendarDate);
+                return taskDate.toDateString() === koreanCalendarDate.toDateString();
             });
             
-            // 날짜 범위에 포함된 태스크 찾기 (시작일-마감일 사이)
+            // 날짜 범위에 포함된 태스크 찾기 (시작일-마감일 사이) - 한국 시간 기준
             const rangeInTasks = currentTasks.filter(task => {
-                const startDate = task.start_date ? new Date(task.start_date) : null;
-                const dueDate = task.due_date ? new Date(task.due_date) : null;
-                const currentDate = new Date(currentCalendarDate);
+                const startDate = task.start_date ? getKoreanTime(new Date(task.start_date)) : null;
+                const dueDate = task.due_date ? getKoreanTime(new Date(task.due_date)) : null;
+                const currentDate = getKoreanTime(new Date(currentCalendarDate));
                 currentDate.setHours(0, 0, 0, 0);
                 
                 // 시작일이 있고 마감일이 있는 경우
@@ -2541,8 +2759,8 @@ function renderCalendar() {
 
             calendarHTML += `
                 <div class="calendar-day ${isCurrentMonth ? 'current-month' : 'other-month'} ${isInRange ? 'date-in-range' : ''}" 
-                     data-date="${currentCalendarDate.toISOString().split('T')[0]}"
-                     style="${rangeStyle}min-height: 100px; padding: var(--space-1); ${day < 6 ? 'border-right: 1px solid var(--border-primary);' : ''} ${dayColor} cursor: pointer;">
+                     data-date="${formatKoreanDate(currentCalendarDate)}"
+                     style="${rangeStyle}min-height: 100px; padding: var(--space-1); ${dayColor} cursor: pointer;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: var(--space-1);">
                         <span style="font-weight: ${isCurrentMonth ? 'var(--font-medium)' : 'var(--font-normal)'};">${dayNum}</span>
                         ${isToday ? '<span class="today-marker" style="background-color: var(--primary-500); color: white; padding: 2px 4px; border-radius: 4px; font-size: 10px;">오늘</span>' : ''}
@@ -2629,19 +2847,22 @@ function showDayTasks(date) {
     
     // 선택된 날짜에 마감일이 있는 할일 + 범위 내에 포함된 할일
     const dayTasks = currentTasks.filter(task => {
-        // 마감일이 선택된 날짜와 같은 할일
+        // 마감일이 선택된 날짜와 같은 할일 (한국 시간 기준)
         if (task.due_date) {
             const taskDate = new Date(task.due_date);
-            if (taskDate.toDateString() === selectedDate.toDateString()) {
+            const koreanTaskDate = getKoreanTime(taskDate);
+            const koreanSelectedDate = getKoreanTime(selectedDate);
+            if (koreanTaskDate.toDateString() === koreanSelectedDate.toDateString()) {
                 return true;
             }
         }
         
-        // 시작일과 마감일 사이 범위에 선택된 날짜가 포함된 할일
+        // 시작일과 마감일 사이 범위에 선택된 날짜가 포함된 할일 (한국 시간 기준)
         if (task.start_date && task.due_date) {
-            const startDate = new Date(task.start_date);
-            const dueDate = new Date(task.due_date);
-            return selectedDate >= startDate && selectedDate <= dueDate;
+            const startDate = getKoreanTime(new Date(task.start_date));
+            const dueDate = getKoreanTime(new Date(task.due_date));
+            const koreanSelectedDate = getKoreanTime(selectedDate);
+            return koreanSelectedDate >= startDate && koreanSelectedDate <= dueDate;
         }
         
         return false;
@@ -3856,9 +4077,10 @@ async function loadTaskComments(taskId) {
             comments = (data || []).map(comment => ({
                 ...comment,
                 author_id: comment.created_by,  // author_id 필드로 통일
-                author_name: comment.created_by === currentUser?.id ? 
+                author_name: comment.author_name || 
+                           (comment.created_by === currentUser?.id ? 
                            (currentUser?.user_metadata?.full_name || currentUser?.email || '나') : 
-                           '사용자'
+                           '사용자')
             }));
             
             console.log('Supabase에서 로드된 댓글 수:', comments.length);
@@ -3982,7 +4204,7 @@ async function handleAddComment() {
             id: Date.now().toString(),
             task_id: currentTaskId,
             content: content,
-            author_name: currentUser?.user_metadata?.full_name || '데모 사용자',
+            author_name: currentUser?.user_metadata?.full_name || currentUser?.email || '데모 사용자',
             author_id: currentUser?.id || 'demo-user',
             created_at: new Date().toISOString()
         };
@@ -4024,7 +4246,8 @@ async function handleAddComment() {
                 todo_id: currentTaskId,  // 필수 외래키
                 task_id: currentTaskId,  // 추가 참조 필드
                 content: content,
-                created_by: currentUser?.id || null  // Supabase auth.users와 연결
+                created_by: currentUser?.id || null,  // Supabase auth.users와 연결
+                author_name: currentUser?.user_metadata?.full_name || currentUser?.email || '사용자'  // 사용자 이름 직접 저장
             };
             
             console.log('Supabase에 저장할 댓글 데이터:', commentData);
@@ -4953,13 +5176,9 @@ function changeCalendarView(view) {
 // 캘린더 날짜 이동
 function moveCalendarDate(direction) {
     if (calendarView === 'week') {
-        // 주간 뷰에서는 1주씩 이동
-        if (direction === 'prev') {
-            currentDate.setDate(currentDate.getDate() - 7);
-        } else if (direction === 'next') {
-            currentDate.setDate(currentDate.getDate() + 7);
-        }
+        // 주간 뷰에서는 항상 오늘 기준 1주만 표시 (날짜 이동 비활성화)
         renderWeekView();
+        showNotification('주간 뷰는 항상 이번 주를 표시합니다.', 'info');
     } else {
         // 월간 뷰에서는 1달씩 이동
         if (direction === 'prev') {
@@ -4995,9 +5214,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 demoBtn.removeEventListener('click', handleDemoMode);
                 demoBtn.addEventListener('click', function(e) {
                     e.preventDefault();
+                    e.stopPropagation();
                     console.log('데모 버튼 클릭됨');
                     handleDemoMode();
                 });
+                
+                // 자동으로 데모 모드 실행 (테스트용)
+                setTimeout(() => {
+                    console.log('자동으로 데모 모드 실행');
+                    handleDemoMode();
+                }, 1000);
             }
             
 
