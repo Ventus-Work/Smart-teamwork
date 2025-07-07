@@ -1286,35 +1286,55 @@ async function ensureUserWorkspace() {
     if (memberships && memberships.length > 0) {
         currentWorkspace = memberships[0].workspaces;
     } else {
-        // 새 워크스페이스 생성
-        const { data: workspace, error: wsError } = await supabase
+        // 기존의 첫 번째 워크스페이스 찾기 (모든 사용자가 공유)
+        const { data: existingWorkspaces, error: existingError } = await supabase
             .from('workspaces')
-            .insert({
-                name: `${currentUser.user_metadata?.full_name || currentUser.email}의 워크스페이스`,
-                description: '개인 작업 공간',
-                created_by: currentUser.id
-            })
-            .select()
-            .single();
+            .select('*')
+            .order('created_at', { ascending: true })
+            .limit(1);
 
-        if (wsError) {
-            throw wsError;
+        if (existingError) {
+            throw existingError;
         }
 
-        // 워크스페이스 멤버로 추가
+        let targetWorkspace;
+        
+        if (existingWorkspaces && existingWorkspaces.length > 0) {
+            // 기존 워크스페이스가 있으면 그것을 사용
+            targetWorkspace = existingWorkspaces[0];
+        } else {
+            // 첫 번째 사용자인 경우에만 새 워크스페이스 생성
+            const { data: workspace, error: wsError } = await supabase
+                .from('workspaces')
+                .insert({
+                    name: 'Smart Teamwork 워크스페이스',
+                    description: '팀 협업 작업 공간',
+                    created_by: currentUser.id
+                })
+                .select()
+                .single();
+
+            if (wsError) {
+                throw wsError;
+            }
+            
+            targetWorkspace = workspace;
+        }
+
+        // 현재 사용자를 워크스페이스 멤버로 추가
         const { error: memberInsertError } = await supabase
             .from('workspace_members')
             .insert({
-                workspace_id: workspace.id,
+                workspace_id: targetWorkspace.id,
                 user_id: currentUser.id,
-                role: 'owner'
+                role: targetWorkspace.created_by === currentUser.id ? 'owner' : 'member'
             });
 
         if (memberInsertError) {
             throw memberInsertError;
         }
 
-        currentWorkspace = workspace;
+        currentWorkspace = targetWorkspace;
     }
 }
 
