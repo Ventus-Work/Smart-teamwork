@@ -664,6 +664,30 @@ select.form-control {
 /* ====================================
    캘린더 스타일 개선
    ==================================== */
+
+/* 할일 표시 점 스타일 */
+.task-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin: 1px;
+    cursor: pointer;
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.task-dot:hover {
+    transform: scale(1.2);
+}
+
+/* 캘린더 날짜별 할일 점들을 정렬 */
+.calendar-tasks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-top: 2px;
+    min-height: 18px;
+}
 .calendar-day {
     position: relative;
     /* 호버 효과 제거 - transition 및 hover 삭제 */
@@ -995,7 +1019,6 @@ select.form-control {
 .calendar-container {
     background-color: var(--bg-card);
     border-radius: var(--radius-lg);
-    border: 1px solid var(--border-primary);
     overflow: hidden;
 }
 

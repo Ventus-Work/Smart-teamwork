@@ -53,6 +53,17 @@ try {
     supabase = null;
 }
 
+// 한국 시간대 처리 함수들
+function getKoreanTime(date = new Date()) {
+    return new Date(date.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
+}
+
+function formatKoreanDate(dateString) {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return getKoreanTime(date);
+}
+
 // 전역 변수
 let currentUser = null;
 let currentWorkspace = null;
@@ -470,14 +481,15 @@ function renderWeekView() {
         // 해당 날짜의 할 일 찾기 (마감일 + 범위 내 태스크)
         const dayTasks = currentTasks.filter(task => {
             if (!task.due_date) return false;
-            const taskDate = new Date(task.due_date);
-            return taskDate.toDateString() === currentDay.toDateString();
+            const taskDate = getKoreanTime(new Date(task.due_date));
+            const koreanCurrentDay = getKoreanTime(currentDay);
+            return taskDate.toDateString() === koreanCurrentDay.toDateString();
         });
         
         const rangeInTasks = currentTasks.filter(task => {
-            const startDate = task.start_date ? new Date(task.start_date) : null;
-            const dueDate = task.due_date ? new Date(task.due_date) : null;
-            const currentDate = new Date(currentDay);
+            const startDate = task.start_date ? getKoreanTime(new Date(task.start_date)) : null;
+            const dueDate = task.due_date ? getKoreanTime(new Date(task.due_date)) : null;
+            const currentDate = getKoreanTime(new Date(currentDay));
             currentDate.setHours(0, 0, 0, 0);
             
             if (startDate && dueDate) {
@@ -1697,6 +1709,10 @@ async function handleDemoMode() {
         await loadDemoData();
         console.log('데모 데이터 로드 완료');
         
+        // 로그인 화면 숨기고 메인 앱 표시
+        elements.loginScreen.style.display = 'none';
+        elements.mainApp.style.display = 'block';
+        
         // 사용자 정보 업데이트
         updateUserInfo();
         
@@ -2479,15 +2495,16 @@ function renderCalendar() {
             // 해당 날짜의 할 일 찾기 (마감일 기준)
             const dayTasks = currentTasks.filter(task => {
                 if (!task.due_date) return false;
-                const taskDate = new Date(task.due_date);
-                return taskDate.toDateString() === currentCalendarDate.toDateString();
+                const taskDate = getKoreanTime(new Date(task.due_date));
+                const koreanCalendarDate = getKoreanTime(currentCalendarDate);
+                return taskDate.toDateString() === koreanCalendarDate.toDateString();
             });
             
             // 날짜 범위에 포함된 태스크 찾기 (시작일-마감일 사이)
             const rangeInTasks = currentTasks.filter(task => {
-                const startDate = task.start_date ? new Date(task.start_date) : null;
-                const dueDate = task.due_date ? new Date(task.due_date) : null;
-                const currentDate = new Date(currentCalendarDate);
+                const startDate = task.start_date ? getKoreanTime(new Date(task.start_date)) : null;
+                const dueDate = task.due_date ? getKoreanTime(new Date(task.due_date)) : null;
+                const currentDate = getKoreanTime(new Date(currentCalendarDate));
                 currentDate.setHours(0, 0, 0, 0);
                 
                 // 시작일이 있고 마감일이 있는 경우
@@ -2520,8 +2537,9 @@ function renderCalendar() {
             });
             // 범위의 마감일인지 확인
             const isRangeEnd = rangeInTasks.some(task => {
-                const dueDate = new Date(task.due_date);
-                return dueDate.toDateString() === currentCalendarDate.toDateString();
+                const dueDate = getKoreanTime(new Date(task.due_date));
+                const koreanCalendarDate = getKoreanTime(currentCalendarDate);
+                return dueDate.toDateString() === koreanCalendarDate.toDateString();
             });
             
             // 범위 스타일 설정
@@ -2552,11 +2570,11 @@ function renderCalendar() {
             const allDayTasks = [...new Set([...dayTasks, ...rangeInTasks])]; // 중복 제거
             
             if (allDayTasks.length > 0) {
-                calendarHTML += `<div style="display: flex; flex-direction: column; gap: 2px; margin-top: var(--space-1); max-height: 60px; overflow: hidden;">`;
+                calendarHTML += `<div class="calendar-tasks" style="display: flex; flex-wrap: wrap; gap: 2px; margin-top: var(--space-1); min-height: 18px;">`;
                 
-                // 최대 3개까지 태스크 바로 표시
-                const maxBars = Math.min(allDayTasks.length, 3);
-                for (let i = 0; i < maxBars; i++) {
+                // 모든 태스크를 점으로 표시
+                const maxDots = Math.min(allDayTasks.length, 10);
+                for (let i = 0; i < maxDots; i++) {
                     const task = allDayTasks[i];
                     const project = currentProjects.find(p => p.id === task.project_id);
                     const projectColor = project ? project.color : '#3B82F6';
@@ -2571,18 +2589,16 @@ function renderCalendar() {
                         : `background-color: ${projectColor}30; border: 1px solid ${projectColor}; color: ${projectColor};`;
                     
                     calendarHTML += `
-                        <div class="task-bar" 
+                        <div class="task-dot" 
                              data-task-id="${task.id}"
-                             style="${taskBarStyle} padding: 1px 4px; border-radius: 3px; font-size: 10px; line-height: 1.2; cursor: pointer; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: white;"
+                             style="width: 8px; height: 8px; border-radius: 50%; background-color: ${projectColor}; margin: 1px; cursor: pointer; display: inline-block;"
                              title="${task.title} ${isDueDate ? '(마감일)' : '(진행중)'}">
-                            ${task.title.length > 8 ? task.title.substring(0, 8) + '...' : task.title}
-                            ${isDueDate ? ' 📅' : ''}
                         </div>`;
                 }
                 
                 // 더 많은 할일이 있으면 +표시
-                if (allDayTasks.length > 3) {
-                    calendarHTML += `<div style="font-size: 9px; color: var(--text-tertiary); text-align: center; margin-top: 1px;">+${allDayTasks.length - 3}개 더</div>`;
+                if (allDayTasks.length > 10) {
+                    calendarHTML += `<div style="font-size: 9px; color: var(--text-tertiary); margin-left: 2px;">+${allDayTasks.length - 10}</div>`;
                 }
                 
                 calendarHTML += `</div>`;
@@ -2631,17 +2647,19 @@ function showDayTasks(date) {
     const dayTasks = currentTasks.filter(task => {
         // 마감일이 선택된 날짜와 같은 할일
         if (task.due_date) {
-            const taskDate = new Date(task.due_date);
-            if (taskDate.toDateString() === selectedDate.toDateString()) {
+            const taskDate = getKoreanTime(new Date(task.due_date));
+            const koreanSelectedDate = getKoreanTime(selectedDate);
+            if (taskDate.toDateString() === koreanSelectedDate.toDateString()) {
                 return true;
             }
         }
         
         // 시작일과 마감일 사이 범위에 선택된 날짜가 포함된 할일
         if (task.start_date && task.due_date) {
-            const startDate = new Date(task.start_date);
-            const dueDate = new Date(task.due_date);
-            return selectedDate >= startDate && selectedDate <= dueDate;
+            const startDate = getKoreanTime(new Date(task.start_date));
+            const dueDate = getKoreanTime(new Date(task.due_date));
+            const koreanSelectedDate = getKoreanTime(selectedDate);
+            return koreanSelectedDate >= startDate && koreanSelectedDate <= dueDate;
         }
         
         return false;
@@ -4993,8 +5011,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('데모 버튼 이벤트 리스너 재설정');
                 // 기존 이벤트 리스너 제거 후 재설정
                 demoBtn.removeEventListener('click', handleDemoMode);
+                demoBtn.onclick = null; // 기존 onclick 핸들러 제거
                 demoBtn.addEventListener('click', function(e) {
                     e.preventDefault();
+                    e.stopPropagation();
                     console.log('데모 버튼 클릭됨');
                     handleDemoMode();
                 });
